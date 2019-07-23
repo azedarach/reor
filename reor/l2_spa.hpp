@@ -121,8 +121,7 @@ double L2_SPA<Backend, RegularizationPolicy>::loss_function() const
 template <class Backend, class RegularizationPolicy>
 double L2_SPA<Backend, RegularizationPolicy>::cost() const
 {
-   return loss_function(X, S, Gamma)
-      + RegularizationPolicy::penalty(X, S, Gamma);
+   return loss_function() + RegularizationPolicy::penalty(X, S, Gamma);
 }
 
 
@@ -136,11 +135,11 @@ int L2_SPA<Backend, RegularizationPolicy>::update_dictionary()
    backends::gemm(1, Gamma, Gamma, 0, GGt,
                   backends::Op_flag::None, backends::Op_flag::Transpose);
 
-   RegularizationPolicy::dictionary_gradient(X, S, Gamma, XGt);
-   backends::gemm(1, X, Gamma, -0.5 * inv_normalization, XGt,
+   RegularizationPolicy::dictionary_gradient(X, S, Gamma, S);
+   backends::gemm(1, X, Gamma, -0.5 * inv_normalization, S,
                   backends::Op_flag::None, backends::Op_flag::Transpose);
 
-   const auto error = backends::solve_qr(GGt, XGt, S);
+   const auto error = backends::solve_square_qr_right(GGt, S);
 
    return error;
 }
@@ -163,7 +162,7 @@ template <class Backend, class RegularizationPolicy>
 std::tuple<int, double> L2_SPA<Backend, RegularizationPolicy>::line_search()
 {
    const double current_cost = cost();
-   Gamma_old = backends::copy_matrix(Gamma);
+   Gamma_old = Backend::copy_matrix(Gamma);
 
    f_mem.pop_front();
    f_mem.push_back(current_cost);
@@ -230,7 +229,7 @@ int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
    const double lambda = std::get<1>(line_search_result);
 
    // update alpha for next iteration
-   delta_grad_Gamma = backends::copy_matrix(grad_Gamma);
+   delta_grad_Gamma = Backend::copy_matrix(grad_Gamma);
 
    update_affiliations_gradient();
 

@@ -10,6 +10,7 @@
 #include "reor/backends/eigen_type_traits.hpp"
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 #include <algorithm>
 #include <functional>
@@ -23,12 +24,19 @@ namespace backends {
 template <class Scalar>
 struct Eigen_backend {
    using Index = Eigen::Index;
+   using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
    static Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>
    create_matrix(Index rows, Index cols)
       {
          return Eigen::Matrix<
             Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(rows, cols);
+      }
+
+   static Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>
+   copy_matrix(const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>& M)
+      {
+         return Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>(M);
       }
 
    static Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>
@@ -340,16 +348,71 @@ struct matrix_residual_fro_norm_impl<
 };
 
 template <class MatrixA, class MatrixB>
-struct solve_qr_impl<
+struct solve_square_qr_left_impl<
    MatrixA, MatrixB,
    typename std::enable_if<is_eigen_matrix<MatrixA>::value &&
                            is_eigen_matrix<MatrixB>::value>::type> {
 
    using return_type = int;
 
-   static return_type eval(const MatrixA& A, MatrixB& B)
+   static return_type eval(const MatrixA& A, MatrixB& B, Op_flag opA)
       {
-         B = A.colPivHouseholderQr().solve(B);
+         if (A.rows() != A.cols()) {
+            throw std::runtime_error("matrix A must be square");
+         }
+
+         switch (opA) {
+         case Op_flag::None: {
+            B = A.colPivHouseholderQr().solve(B);
+            break;
+         }
+         case Op_flag::Transpose: {
+            B = A.transpose().colPivHouseholderQr().solve(B);
+            break;
+         }
+         case Op_flag::Adjoint: {
+            B = A.adjoint().colPivHouseholderQr().solve(B);
+            break;
+         }
+         }
+
+         return 0;
+      }
+};
+
+template <class MatrixA, class MatrixB>
+struct solve_square_qr_right_impl<
+   MatrixA, MatrixB,
+   typename std::enable_if<is_eigen_matrix<MatrixA>::value &&
+                           is_eigen_matrix<MatrixB>::value>::type> {
+
+   using return_type = int;
+
+   static return_type eval(const MatrixA& A, MatrixB& B, Op_flag opA)
+      {
+         if (A.rows() != A.cols()) {
+            throw std::runtime_error("matrix A must be square");
+         }
+
+         B.transposeInPlace();
+
+         switch (opA) {
+         case Op_flag::None: {
+            B = A.transpose().colPivHouseholderQr().solve(B);
+            break;
+         }
+         case Op_flag::Transpose: {
+            B = A.colPivHouseholderQr().solve(B);
+            break;
+         }
+         case Op_flag::Adjoint: {
+            B = A.conjugate().colPivHouseholderQr().solve(B);
+            break;
+         }
+         }
+
+         B.transposeInPlace();
+
          return 0;
       }
 };

@@ -54,7 +54,10 @@ template <class MatrixC, class MatrixA, class MatrixB,
 struct matrix_residual_fro_norm_impl {};
 
 template <class MatrixA, class MatrixB, class Enable = void>
-struct solve_qr_impl {};
+struct solve_square_qr_left_impl {};
+
+template <class MatrixA, class MatrixB, class Enable = void>
+struct solve_square_qr_right_impl {};
 
 template <class Vector, class Enable = void>
 struct simplex_project_vector_impl {};
@@ -287,14 +290,33 @@ matrix_residual_fro_norm(
 /**
  * @brief Solves a linear system using QR decomposition
  *
+ * The linear system to be solved is of the form
+ * op(A) * X = B. The matrix A must be square.
+ *
  * @tparam MatrixA the type of the coefficients matrix
  * @tparam MatrixB the type of the solution matrix
  */
 template <class MatrixA, class MatrixB>
-typename detail::solve_qr_impl<MatrixA, MatrixB>::return_type
-solve_qr(const MatrixA& A, MatrixB& B)
+typename detail::solve_square_qr_left_impl<MatrixA, MatrixB>::return_type
+solve_square_qr_left(const MatrixA& A, MatrixB& B, Op_flag opA = Op_flag::None)
 {
-   return detail::solve_qr_impl<MatrixA, MatrixB>::eval(A, B);
+   return detail::solve_square_qr_left_impl<MatrixA, MatrixB>::eval(A, B, opA);
+}
+
+/**
+ * @brief Solves a linear system using QR decomposition
+ *
+ * The linear system to be solved is of the form
+ * X * op(A) = B. The matrix A must be square.
+ *
+ * @tparam MatrixA the type of the coefficients matrix
+ * @tparam MatrixB the type of the solution matrix
+ */
+template <class MatrixA, class MatrixB>
+typename detail::solve_square_qr_right_impl<MatrixA, MatrixB>::return_type
+solve_square_qr_right(const MatrixA& A, MatrixB& B, Op_flag opA = Op_flag::None)
+{
+   return detail::solve_square_qr_right_impl<MatrixA, MatrixB>::eval(A, B, opA);
 }
 
 /**
