@@ -58,6 +58,17 @@ struct Eigen_backend {
 namespace detail {
 
 template <class Matrix>
+struct matrix_traits_impl<
+   Matrix,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   typedef typename Eigen::Index index_type;
+   typedef typename Matrix::Scalar element_type;
+   typedef typename Matrix::RealScalar real_element_type;
+
+};
+
+template <class Matrix>
 struct rows_impl<
    Matrix,
    typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {

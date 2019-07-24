@@ -10,6 +10,9 @@ namespace backends {
 namespace detail {
 
 template <class Matrix, class Enable = void>
+struct matrix_traits_impl {};
+
+template <class Matrix, class Enable = void>
 struct cols_impl {};
 
 template <class Matrix, class Enable = void>
@@ -66,6 +69,9 @@ template <class Matrix, class Enable = void>
 struct simplex_project_columns_impl {};
 
 } // namespace detail
+
+template <class Matrix>
+struct matrix_traits : public detail::matrix_traits_impl<Matrix> { };
 
 enum class Op_flag {
    None, Transpose, Adjoint
