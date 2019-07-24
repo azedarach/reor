@@ -166,6 +166,7 @@ std::tuple<int, double> L2_SPA<Backend, RegularizationPolicy>::line_search()
 
    f_mem.pop_front();
    f_mem.push_back(current_cost);
+
    double f_max = -std::numeric_limits<double>::max();
    for (std::size_t i = 0; i < mem; ++i) {
       if (f_mem[i] > f_max) {
@@ -207,10 +208,6 @@ int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
 {
    using std::min;
    using std::max;
-
-   const auto n_features = backends::rows(X);
-   const auto n_samples = backends::cols(X);
-   const double normalization = 1.0 / (n_features * n_samples);
 
    backends::gemm(1, S, S, 0, StS,
                   backends::Op_flag::Transpose, backends::Op_flag::None);
