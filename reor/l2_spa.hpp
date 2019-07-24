@@ -37,6 +37,10 @@ public:
    int update_dictionary();
    int update_affiliations();
 
+   const Matrix& get_data() const { return X; }
+   const Matrix& get_dictionary() const { return S; }
+   const Matrix& get_affiliations() const { return Gamma; }
+
 private:
    Matrix X{};
    Matrix S{};
