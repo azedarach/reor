@@ -3,6 +3,8 @@
 #include "reor/l2_spa.hpp"
 #include "reor/numerics_helpers.hpp"
 
+#include "comparison_helpers.hpp"
+
 #include <limits>
 
 using namespace reor;
@@ -37,6 +39,8 @@ TEST_CASE("Test cost function with no regularization and Eigen matrices",
             Gamma(k, i) /= col_sums(i);
          }
       }
+
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
 
       const Eigen::MatrixXd X(S * Gamma);
 
@@ -74,6 +78,8 @@ TEST_CASE("Test dictionary update with no regularization and Eigen matrices",
          }
       }
 
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
       L2_SPA<Backend> spa(X, S, Gamma);
 
       const double initial_cost = spa.cost();
@@ -107,6 +113,8 @@ TEST_CASE("Test dictionary update with no regularization and Eigen matrices",
          }
       }
 
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
       const Eigen::MatrixXd X(S * Gamma);
 
       L2_SPA<Backend> spa(X, S, Gamma);
@@ -118,10 +126,10 @@ TEST_CASE("Test dictionary update with no regularization and Eigen matrices",
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
+      const Eigen::MatrixXd updated_S(spa.get_dictionary());
 
       CHECK(is_equal(initial_cost, final_cost, tolerance));
-
-      // @todo check actual matrices
+      CHECK(is_equal(S, updated_S, tolerance));
    }
 
    SECTION("Repeated updates converge to fixed point")
@@ -146,6 +154,8 @@ TEST_CASE("Test dictionary update with no regularization and Eigen matrices",
             Gamma(k, i) /= col_sums(i);
          }
       }
+
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
 
       L2_SPA<Backend> spa(X, S, Gamma);
 
@@ -195,6 +205,8 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
          }
       }
 
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
       L2_SPA<Backend, Regularization> spa(X, S, Gamma);
       const double test_epsilon_states = 3.;
       spa.set_epsilon_states(test_epsilon_states);
@@ -230,6 +242,8 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
          }
       }
 
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
       const Eigen::MatrixXd X(S * Gamma);
 
       L2_SPA<Backend, Regularization> spa(X, S, Gamma);
@@ -243,10 +257,10 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
+      const Eigen::MatrixXd updated_S(spa.get_dictionary());
 
       CHECK(is_equal(initial_cost, final_cost, tolerance));
-
-      // @todo check actual matrices
+      CHECK(is_equal(S, updated_S, tolerance));
    }
 
    SECTION("Repeated updates converge to fixed point")
@@ -272,6 +286,8 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
          }
       }
 
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
       L2_SPA<Backend, Regularization> spa(X, S, Gamma);
       const double test_epsilon_states = 1.;
       spa.set_epsilon_states(test_epsilon_states);
@@ -288,6 +304,136 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
          cost_delta = new_cost - old_cost;
 
          CHECK(cost_delta <= 0);
+
+         ++iter;
+      }
+
+      REQUIRE(iter < max_iter);
+   }
+}
+
+TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
+          "[l2_spa][eigen_backend]")
+{
+   using Backend = backends::Eigen_backend<double>;
+
+   SECTION("Single affiliations update reduces cost function")
+   {
+      const int n_features = 25;
+      const int n_components = 6;
+      const int n_samples = 300;
+
+      const Eigen::MatrixXd X(
+         Eigen::MatrixXd::Random(n_features, n_samples));
+      Eigen::MatrixXd S(
+         Eigen::MatrixXd::Random(n_features, n_components));
+      Eigen::MatrixXd Gamma(
+         Eigen::MatrixXd::Random(n_components, n_samples).cwiseAbs());
+
+      const Eigen::RowVectorXd col_sums = Gamma.colwise().sum();
+      for (int i = 0; i < n_samples; ++i) {
+         for (int k = 0; k < n_components; ++k) {
+            Gamma(k, i) /= col_sums(i);
+         }
+      }
+
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
+      L2_SPA<Backend> spa(X, S, Gamma);
+
+      const double initial_cost = spa.cost();
+
+      const int error = spa.update_affiliations();
+
+      REQUIRE(error == 0);
+
+      const double final_cost = spa.cost();
+      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+
+      CHECK(final_cost < initial_cost);
+      CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
+   }
+
+   SECTION("Exact solution is fixed point of update")
+   {
+      const int n_features = 5;
+      const int n_components = 6;
+      const int n_samples = 40;
+      const double tolerance = 1e-12;
+
+      const Eigen::MatrixXd S(
+         Eigen::MatrixXd::Random(n_features, n_components));
+
+      Eigen::MatrixXd Gamma(
+         Eigen::MatrixXd::Random(n_components, n_samples).cwiseAbs());
+
+      const Eigen::RowVectorXd col_sums = Gamma.colwise().sum();
+      for (int i = 0; i < n_samples; ++i) {
+         for (int k = 0; k < n_components; ++k) {
+            Gamma(k, i) /= col_sums(i);
+         }
+      }
+
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
+      const Eigen::MatrixXd X(S * Gamma);
+
+      L2_SPA<Backend> spa(X, S, Gamma);
+
+      const double initial_cost = spa.cost();
+
+      const int error = spa.update_affiliations();
+
+      REQUIRE(error == 0);
+
+      const double final_cost = spa.cost();
+      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+
+      CHECK(is_equal(initial_cost, final_cost, tolerance));
+      CHECK(is_equal(Gamma, updated_Gamma, tolerance));
+   }
+
+   SECTION("Repeated updates converge to fixed point")
+   {
+      const int n_features = 10;
+      const int n_components = 7;
+      const int n_samples = 100;
+      const int max_iter = 100;
+      const double tolerance = 1e-6;
+
+      const Eigen::MatrixXd X(
+         Eigen::MatrixXd::Random(n_features, n_samples));
+      const Eigen::MatrixXd S(
+         Eigen::MatrixXd::Random(n_features, n_components));
+
+      Eigen::MatrixXd Gamma(
+         Eigen::MatrixXd::Random(n_components, n_samples).cwiseAbs());
+
+      const Eigen::RowVectorXd col_sums = Gamma.colwise().sum();
+      for (int i = 0; i < n_samples; ++i) {
+         for (int k = 0; k < n_components; ++k) {
+            Gamma(k, i) /= col_sums(i);
+         }
+      }
+
+      REQUIRE(is_left_stochastic_matrix(Gamma, 1e-12));
+
+      L2_SPA<Backend> spa(X, S, Gamma);
+
+      double cost_delta = std::numeric_limits<double>::max();
+      double old_cost = spa.cost();
+      double new_cost = old_cost;
+      int iter = 0;
+      while (std::abs(cost_delta) > tolerance && iter < max_iter) {
+         old_cost = new_cost;
+         spa.update_affiliations();
+         new_cost = spa.cost();
+
+         cost_delta = new_cost - old_cost;
+         CHECK(cost_delta <= 0);
+
+         const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+         CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
 
          ++iter;
       }
