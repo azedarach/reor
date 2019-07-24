@@ -327,6 +327,75 @@ struct sum_gemm_op_impl<
       }
 };
 
+template <class Scalar1, class MatrixA, class MatrixB, class Scalar2,
+          class MatrixC>
+struct hadamard_impl<
+   Scalar1, MatrixA, MatrixB, Scalar2, MatrixC,
+   typename std::enable_if<is_eigen_matrix<MatrixA>::value &&
+                           is_eigen_matrix<MatrixB>::value &&
+                           is_eigen_matrix<MatrixC>::value>::type> {
+
+   static void eval(Scalar1 alpha, const MatrixA& A, const MatrixB& B,
+                    Scalar2 beta, MatrixC& C, Op_flag opA, Op_flag opB)
+      {
+         if (opA == Op_flag::None && opB == Op_flag::None) {
+            C = alpha * A.cwiseProduct(B) + beta * C;
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::None) {
+            C = alpha * A.transpose().cwiseProduct(B) + beta * C;
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::None) {
+            C = alpha * A.adjoint().cwiseProduct(B) + beta * C;
+         } else if (opA == Op_flag::None && opB == Op_flag::Transpose) {
+            C = alpha * A.cwiseProduct(B.transpose()) + beta * C;
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::Transpose) {
+            C = alpha * A.transpose().cwiseProduct(B.transpose()) + beta * C;
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::Transpose) {
+            C = alpha * A.adjoint().cwiseProduct(B.transpose()) + beta * C;
+         } else if (opA == Op_flag::None && opB == Op_flag::Adjoint) {
+            C = alpha * A.cwiseProduct(B.adjoint()) + beta * C;
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::Adjoint) {
+            C = alpha * A.transpose().cwiseProduct(B.adjoint()) + beta * C;
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::Adjoint) {
+            C = alpha * A.adjoint().cwiseProduct(B.adjoint()) + beta * C;
+         }
+      }
+};
+
+template <class Scalar1, class MatrixA, class MatrixB>
+struct sum_hadamard_op_impl<
+   Scalar1, MatrixA, MatrixB,
+   typename std::enable_if<is_eigen_matrix<MatrixA>::value &&
+                           is_eigen_matrix<MatrixB>::value>::type> {
+
+   using value_type = typename std::common_type<
+      Scalar1, typename MatrixA::Scalar, typename MatrixB::Scalar>::type;
+
+   static value_type eval(Scalar1 alpha, const MatrixA& A, const MatrixB& B,
+                          Op_flag opA, Op_flag opB)
+      {
+         if (opA == Op_flag::None && opB == Op_flag::None) {
+            return (alpha * A.cwiseProduct(B)).sum();
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::None) {
+            return (alpha * A.transpose().cwiseProduct(B)).sum();
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::None) {
+            return (alpha * A.adjoint().cwiseProduct(B)).sum();
+         } else if (opA == Op_flag::None && opB == Op_flag::Transpose) {
+            return (alpha * A.cwiseProduct(B.transpose())).sum();
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::Transpose) {
+            return (alpha * A.transpose().cwiseProduct(B.transpose())).sum();
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::Transpose) {
+            return (alpha * A.adjoint().cwiseProduct(B.transpose())).sum();
+         } else if (opA == Op_flag::None && opB == Op_flag::Adjoint) {
+            return (alpha * A.cwiseProduct(B.adjoint())).sum();
+         } else if (opA == Op_flag::Transpose && opB == Op_flag::Adjoint) {
+            return (alpha * A.transpose().cwiseProduct(B.adjoint())).sum();
+         } else if (opA == Op_flag::Adjoint && opB == Op_flag::Adjoint) {
+            return (alpha * A.adjoint().cwiseProduct(B.adjoint())).sum();
+         }
+
+         throw std::runtime_error("invalid combination of operations");
+      }
+};
+
 template <class MatrixC, class MatrixA, class MatrixB, class ResidualMatrix>
 struct matrix_residual_impl<
    MatrixC, MatrixA, MatrixB, ResidualMatrix,

@@ -48,6 +48,14 @@ template <class Scalar1, class MatrixA, class MatrixB,
           class Enable = void>
 struct sum_gemm_op_impl {};
 
+template <class Scalar1, class MatrixA, class MatrixB, class Scalar2,
+          class MatrixC, class Enable = void>
+struct hadamard_impl {};
+
+template <class Scalar1, class MatrixA, class MatrixB,
+          class Enable = void>
+struct sum_hadamard_op_impl {};
+
 template <class MatrixC, class MatrixA, class MatrixB, class ResidualMatrix,
           class Enable = void>
 struct matrix_residual_impl {};
@@ -251,6 +259,47 @@ sum_gemm_op(Scalar1 alpha, const MatrixA& A, const MatrixB& B,
             Op_flag opB = Op_flag::None)
 {
    return detail::sum_gemm_op_impl<Scalar1, MatrixA, MatrixB>::eval(
+      alpha, A, B, opA, opB);
+}
+
+/**
+ * @brief Computes the Hadamard product of two matrices
+ *
+ * Implements the operation C = alpha * Had(A, B) + beta * C .
+ * The contents of the matrix C are overwritten.
+ *
+ * @tparam Scalar1 the type of the scalar coefficient alpha
+ * @tparam MatrixA the type of the matrix A
+ * @tparam MatrixB the type of the matrix B
+ * @tparam Scalar2 the type of the scalar coefficient beta
+ * @tparam MatrixC the type of the matrix C
+ */
+template <class Scalar1, class MatrixA, class MatrixB, class Scalar2,
+          class MatrixC>
+void hadamard(Scalar1 alpha, const MatrixA& A, const MatrixB& B, Scalar2 beta,
+              MatrixC& C, Op_flag opA = Op_flag::None,
+              Op_flag opB = Op_flag::None)
+{
+   detail::hadamard_impl<Scalar1, MatrixA, MatrixB, Scalar2, MatrixC>::eval(
+      alpha, A, B, beta, C, opA, opB);
+}
+
+/**
+ * @brief Computes the element-wise sum of a Hadamard product.
+ *
+ * Returns the value of \sum_{i, j}(alpha * Had(A, B))_{ij}.
+ *
+ * @tparam Scalar1 the type of the scalar coefficient alpha
+ * @tparam MatrixA the type of the matrix A
+ * @tparam MatrixB the type of the matrix B
+ */
+template <class Scalar1, class MatrixA, class MatrixB>
+typename detail::sum_gemm_op_impl<Scalar1, MatrixA, MatrixB>::value_type
+sum_hadamard_op(Scalar1 alpha, const MatrixA& A, const MatrixB& B,
+                Op_flag opA = Op_flag::None,
+                Op_flag opB = Op_flag::None)
+{
+   return detail::sum_hadamard_op_impl<Scalar1, MatrixA, MatrixB>::eval(
       alpha, A, B, opA, opB);
 }
 
