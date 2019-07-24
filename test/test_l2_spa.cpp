@@ -137,8 +137,8 @@ TEST_CASE("Test dictionary update with no regularization and Eigen matrices",
       const int n_features = 13;
       const int n_components = 3;
       const int n_samples = 50;
-      const int max_iter = 10;
-      const double tolerance = 1e-14;
+      const int max_iter = 100;
+      const double tolerance = 1e-6;
 
       const Eigen::MatrixXd X(
          Eigen::MatrixXd::Random(n_features, n_samples));
@@ -268,8 +268,8 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
       const int n_features = 13;
       const int n_components = 3;
       const int n_samples = 50;
-      const int max_iter = 10;
-      const double tolerance = 1e-14;
+      const int max_iter = 100;
+      const double tolerance = 1e-8;
 
       const Eigen::MatrixXd X(
          Eigen::MatrixXd::Random(n_features, n_samples));
