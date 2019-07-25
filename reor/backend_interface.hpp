@@ -19,7 +19,10 @@ template <class Matrix, class Enable = void>
 struct rows_impl {};
 
 template <class Index, class Scalar, class Matrix, class Enable = void>
-struct set_element_impl {};
+struct set_matrix_element_impl {};
+
+template <class Index, class Matrix, class Enable = void>
+struct get_matrix_element_impl {};
 
 template <class Scalar, class Matrix, class Enable = void>
 struct add_constant_impl {};
@@ -115,9 +118,22 @@ std::size_t rows(const Matrix& m)
  * @tparam Matrix the type of the matrix
  */
 template <class Index, class Scalar, class Matrix>
-void set_element(Index row, Index col, Scalar s, Matrix& A)
+void set_matrix_element(Index row, Index col, Scalar s, Matrix& A)
 {
-   detail::set_element_impl<Index, Scalar, Matrix>::set(row, col, s, A);
+   detail::set_matrix_element_impl<Index, Scalar, Matrix>::set(row, col, s, A);
+}
+
+/**
+ * @brief Gets a single matrix element
+ *
+ * @tparam Index the type of the index
+ * @tparam Matrix the type of the matrix
+ */
+template <class Index, class Matrix>
+typename matrix_traits<Matrix>::element_type
+get_matrix_element(Index row, Index col, const Matrix& A)
+{
+   return detail::get_matrix_element_impl<Index, Matrix>::get(row, col, A);
 }
 
 /**

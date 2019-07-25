@@ -1,5 +1,10 @@
 #include "lorenz63_rk4_model.hpp"
 
+#include "reor/random_matrix.hpp"
+
+#include "cross_validation.hpp"
+#include "l2spa_fit_wrappers.hpp"
+
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -15,11 +20,14 @@
 using namespace reor;
 
 struct Program_options {
-   int n_components{2};
+   std::vector<int> n_components{};
+   std::vector<double> epsilon_states{};
    int n_folds{1};
    int n_init{10};
    int n_samples{5000};
    int random_seed{0};
+   double tolerance{1e-6};
+   int max_iterations{1000000};
    double x0{1};
    double y0{1};
    double z0{1};
@@ -28,6 +36,7 @@ struct Program_options {
    double rho{28};
    double time_step{1e-2};
    std::string trajectory_output_file{""};
+   std::string summary_output_file{""};
    bool out_of_sample_cv{false};
    bool verbose{false};
 };
@@ -41,7 +50,16 @@ void print_usage()
       "Options:\n"
       "  --beta=BETA                         value of system parameter beta\n"
       "  -d, --trajectory-output-file=FILE   file to write trajectory data to\n"
+      "  -e, --epsilon-states=EPSILON_STATES regularization parameter\n"
+      "  -f, --n-folds=N_FOLDS               number of cross-validation folds\n"
       "  -h, --help                          print this help message\n"
+      "  -i, --n-init=N_INIT                 number of initializations\n"
+      "  -k, --n-components=N_COMPONENTS     number of dictionary vectors\n"
+      "  -m, --max-iterations=MAX_ITERATIONS maximum number of iterations\n"
+      "  -o, --summary-output-file=FILE      file to write fit summaries to\n"
+      "  --oos                               use out-of-sample cross-validation\n"
+      "  -r, --random-seed=RANDOM_SEED       random seed\n"
+      "  -s, --tolerance=TOLERANCE           stopping tolerance\n"
       "  --rho=RHO                           value of system parameter rho\n"
       "  --sigma=SIGMA                       value of system parameter sigma\n"
       "  -t, --time=step=TIME_STEP           time step\n"
@@ -103,9 +121,211 @@ Program_options parse_cmd_line_args(int argc, const char* argv[])
          continue;
       }
 
+      if (opt == "-e") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-e' given but regularization parameter not provided");
+         }
+         const std::string epsilon_states(argv[i++]);
+         if (starts_with(epsilon_states, "-")) {
+            throw std::runtime_error(
+               "'-e' given but valid regularization parameter not provided");
+         }
+         options.epsilon_states.push_back(std::stod(epsilon_states));
+         continue;
+      }
+
+      if (starts_with(opt, "--epsilon-states=")) {
+         const std::string epsilon_states = get_option_value(opt);
+         if (epsilon_states.empty() || starts_with(epsilon_states, "-")) {
+            throw std::runtime_error(
+               "'--epsilon-states=' given but valid regularization parameter not provided");
+         }
+         options.epsilon_states.push_back(std::stod(epsilon_states));
+         continue;
+      }
+
+      if (opt == "-f") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-f' given but number of folds not provided");
+         }
+         const std::string n_folds(argv[i++]);
+         if (starts_with(n_folds, "-")) {
+            throw std::runtime_error(
+               "'-f' given but valid number of folds not provided");
+         }
+         options.n_folds = std::stoi(n_folds);
+         continue;
+      }
+
+      if (starts_with(opt, "--n-folds=")) {
+         const std::string n_folds = get_option_value(opt);
+         if (n_folds.empty() || starts_with(n_folds, "-")) {
+            throw std::runtime_error(
+               "'--n-folds=' given but valid number of folds not provided");
+         }
+         options.n_folds = std::stoi(n_folds);
+         continue;
+      }
+
       if (opt == "-h" || opt == "--help") {
          print_usage();
          exit(EXIT_SUCCESS);
+      }
+
+      if (opt == "-i") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-i' given but number of initializations not provided");
+         }
+         const std::string n_init(argv[i++]);
+         if (starts_with(n_init, "-")) {
+            throw std::runtime_error(
+               "'-i' given but valid number of initializations not provided");
+         }
+         options.n_init = std::stoi(n_init);
+         continue;
+      }
+
+      if (starts_with(opt, "--n-init=")) {
+         const std::string n_init = get_option_value(opt);
+         if (n_init.empty() || starts_with(n_init, "-")) {
+            throw std::runtime_error(
+               "'--n-init=' given but valid number of initializations not provided");
+         }
+         options.n_init = std::stoi(n_init);
+         continue;
+      }
+
+      if (opt == "-k") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-k' given but number of components not provided");
+         }
+         const std::string n_components(argv[i++]);
+         if (starts_with(n_components, "-")) {
+            throw std::runtime_error(
+               "'-k' given but valid number of components not provided");
+         }
+         options.n_components.push_back(std::stoi(n_components));
+         continue;
+      }
+
+      if (starts_with(opt, "--n-components=")) {
+         const std::string n_components = get_option_value(opt);
+         if (n_components.empty() || starts_with(n_components, "-")) {
+            throw std::runtime_error(
+               "'--n-components=' given but valid number of components not provided");
+         }
+         options.n_components.push_back(std::stoi(n_components));
+         continue;
+      }
+
+      if (opt == "-m") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-m' given but maximum number of iterations not provided");
+         }
+         const std::string max_iterations(argv[i++]);
+         if (starts_with(max_iterations, "-")) {
+            throw std::runtime_error(
+               "'-m' given but valid maximum number of iterations not provided");
+         }
+         options.max_iterations = std::stoi(max_iterations);
+         continue;
+      }
+
+      if (starts_with(opt, "--max-iterations=")) {
+         const std::string max_iterations = get_option_value(opt);
+         if (max_iterations.empty() || starts_with(max_iterations, "-")) {
+            throw std::runtime_error(
+               "'--max-iterations=' given but valid maximum number of iterations not provided");
+         }
+         options.max_iterations = std::stoi(max_iterations);
+         continue;
+      }
+
+      if (opt == "-o") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-o' given but no output file name provided");
+         }
+         const std::string filename(argv[i++]);
+         if (starts_with(filename, "-") && filename != "-") {
+            throw std::runtime_error(
+               "'-o' given but no output file name provided");
+         }
+         options.summary_output_file = filename;
+         continue;
+      }
+
+      if (starts_with(opt, "--summary-output-file=")) {
+         const std::string filename = get_option_value(opt);
+         if (filename.empty()) {
+            throw std::runtime_error(
+               "'--summary-output-file=' given but no output file name provided");
+         }
+         options.summary_output_file = filename;
+         continue;
+      }
+
+      if (opt == "--oos") {
+         options.out_of_sample_cv = true;
+         continue;
+      }
+
+      if (opt == "-h" || opt == "--help") {
+         print_usage();
+         exit(EXIT_SUCCESS);
+      }
+
+      if (opt == "-r") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-r' given but random seed not provided");
+         }
+         const std::string random_seed(argv[i++]);
+         if (starts_with(random_seed, "-")) {
+            throw std::runtime_error(
+               "'-r' given but valid random seed not provided");
+         }
+         options.random_seed = std::stoi(random_seed);
+         continue;
+      }
+
+      if (starts_with(opt, "--random-seed=")) {
+         const std::string random_seed = get_option_value(opt);
+         if (random_seed.empty() || starts_with(random_seed, "-")) {
+            throw std::runtime_error(
+               "'--random-seed=' given but valid random seed not provided");
+         }
+         options.random_seed = std::stoi(random_seed);
+         continue;
+      }
+
+      if (opt == "-s") {
+         if (i == argc) {
+            throw std::runtime_error(
+               "'-s' given but tolerance not provided");
+         }
+         const std::string tolerance(argv[i++]);
+         if (starts_with(tolerance, "-")) {
+            throw std::runtime_error(
+               "'-s' given but valid tolerance not provided");
+         }
+         options.tolerance = std::stod(tolerance);
+         continue;
+      }
+
+      if (starts_with(opt, "--tolerance=")) {
+         const std::string tolerance = get_option_value(opt);
+         if (tolerance.empty() || starts_with(tolerance, "-")) {
+            throw std::runtime_error(
+               "'--tolerance=' given but valid tolerance not provided");
+         }
+         options.tolerance = std::stod(tolerance);
+         continue;
       }
 
       if (opt == "-t") {
@@ -266,228 +486,11 @@ void generate_trajectory(
    }
 }
 
-template <class Generator>
-std::vector<std::vector<int> > generate_test_sets(
-   const Eigen::MatrixXd& data, int n_folds, bool oos_cv, Generator& generator,
-   bool verbose)
-{
-   const int n_samples = data.cols();
-
-   const auto start_time = std::chrono::high_resolution_clock::now();
-
-   std::vector<std::vector<int> > test_sets;
-   if (n_folds > 1) {
-      if (oos_cv) {
-         // number of folds is taken to be 1 / (fraction of data held out)
-         const double test_fraction = 1. / n_folds;
-         int max_training_index = static_cast<int>(
-            std::floor((1 - test_fraction) * n_samples));
-         if (max_training_index >= n_samples - 1) {
-            max_training_index = n_samples - 2;
-         }
-
-         const int n_test_points = n_samples - 1 - max_training_index;
-         std::vector<int> test_set(n_test_points);
-         std::iota(std::begin(test_set), std::end(test_set),
-                   max_training_index + 1);
-
-         test_sets.push_back(test_set);
-      } else {
-         for (int i = 0; i < n_folds; ++i) {
-            test_sets.push_back(std::vector<int>());
-         }
-
-         std::uniform_int_distribution<> dist(0, n_folds - 1);
-         for (int t = 0; t < n_samples; ++t) {
-            const int assignment = dist(generator);
-            test_sets[assignment].push_back(t);
-         }
-      }
-   }
-
-   const auto end_time = std::chrono::high_resolution_clock::now();
-   const std::duration<double> total_time = end_time - start_time;
-
-   if (verbose) {
-      std::cout << "Number of CV folds: " << n_folds << '\n';
-
-      const std::size_t n_test_sets = test_sets.size();
-      std::cout << "Number of test sets: " << n_test_sets << '\n';
-      std::cout << "Test set sizes: [";
-      for (std::size_t i = 0; i < n_test_sets; ++i) {
-         std::cout << test_sets[i].size();
-         if (i != n_test_sets - 1) {
-            std::cout << ", ";
-         } else {
-            std::cout << "]\n";
-         }
-      }
-      std::cout << "Required time: " << total_time.count() << "s\n";
-   }
-
-   return test_sets;
-}
-
-double calculate_rmse(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B)
-{
-   const Eigen::MatrixXd residuals(A - B);
-   const double mse = residuals.cwiseProduct(residuals).mean();
-   return std::sqrt(mse);
-}
-
-struct Factorization_result {
-   Eigen::MatrixXd dictionary{};
-   Eigen::MatrixXd affiliations{};
-   double min_cost{-1};
-   double max_cost{-1};
-   double average_cost{-1};
-   double min_training_approx_rmse{-1};
-   double max_training_approx_rmse{-1};
-   double average_training_approx_rmse{-1};
-   double min_test_approx_rmse{-1};
-   double max_test_approx_rmse{-1};
-   double average_test_approx_rmse{-1};
-   double min_time_seconds{-1};
-   double max_time_seconds{-1};
-   double average_time_seconds{-1};
-};
-
-struct Fit_result {
-   Eigen::MatrixXd dictionary{};
-   Eigen::MatrixXd affiliations{};
-   double cost{std::numeric_limits<double>::max()};
-   double training_rmse{std::numeric_limits<double>::max()};
-   double test_rmse{std::numeric_limits<double>::max()};
-   int n_iter{-1};
-   double time_seconds{-1};
-   bool success{false};
-};
-
-std::tuple<bool, int, double> iterate_until_converged(
-   L2_SPA<Backend, Regularization>& spa, double tolerance, int max_iterations)
-{
-   double old_cost = spa.cost();
-   double new_cost = old_cost;
-   double cost_delta = std::numeric_limits<double>::max();
-   bool success = false;
-
-   int iter = 0;
-   while (iter < max_iterations) {
-      old_cost = new_cost;
-
-      spa.update_dictionary();
-
-      const double tmp_cost = spa.cost();
-      if (tmp_cost > old_cost) {
-         throw std::runtime_error(
-            "factorization cost increased after dictionary update");
-      }
-
-      spa.update_affiliations();
-
-      new_cost = spa.cost();
-      cost_delta = new_cost - old_cost;
-
-      if (cost_delta > 0) {
-         throw std::runtime_error(
-            "factorization cost increased after affiliations update");
-      }
-
-      if (std::abs(cost_delta) < tolerance) {
-         success = true;
-         break;
-      }
-
-      ++iter;
-   }
-
-   return std::make_tuple(success, iter, new_cost);
-}
-
-template <class Generator>
-Fit_result run_l2spa(
-   const Eigen::MatrixXd& data, const std::vector<int>& test_set,
-   int n_components, double epsilon_states, int n_init,
-   double tolerance, int max_iterations, Generator& generator)
-{
-   Fit_result best_result;
-
-   const int n_features = data.rows();
-   const int n_samples = data.cols();
-   const int n_training_samples = n_samples - test_set.size();
-
-   Eigen::MatrixXd training_data(
-      Eigen::MatrixXd::Zero(n_features, n_training_samples));
-   int training_idx = 0;
-   for (int i = 0; i < n_samples; ++i) {
-      const bool in_test_set = std::find(
-         std::begin(test_set), std::end(test_set), i) == std::end(test_set);
-
-      if (!in_test_set) {
-         training_data.col(training_idx) = data.col(i);
-         ++training_idx;
-      }
-   }
-
-   for (int i = 0; i < n_init; ++i) {
-      const auto start_time = std::chrono::high_resolution_clock::now();
-
-      L2_SPA<Backend, Regularization> spa(
-         training_data, initial_dictionary, initial_affiliations);
-      spa.set_epsilon_states(epsilon_states);
-
-      const std::tuple<bool, int, double> iteration_result =
-         iterate_until_converged(spa, tolerance, max_iterations);
-
-      const bool success = std::get<0>(iteration_result);
-      const int n_iter = std::get<1>(iteration_result);
-      const double cost = std::get<2>(iteration_result);
-
-      const auto end_time = std::chrono::high_resolution_clock::now();
-      const std::chrono::duration<double> total_time = end_time - start_time;
-
-      if (success && new_cost < best_result.cost) {
-         best_result.dictionary = spa.get_dictionary();
-         best_result.affiliations = spa.get_affiliations();
-         best_result.cost = new_cost;
-         best_result.n_iter = iter;
-         best_result.time_seconds = total_time.count();
-         best_result.success = success;
-      }
-   }
-
-   if (best_result.success) {
-      const Eigen::MatrixXd reconstruction =
-         best_result.dictionary * best_result.affiliations;
-      best_result.training_rmse = calculate_rmse(training_data, reconstruction);
-
-      if (test_set.size() != 0) {
-         const int n_test_samples = test_set.size();
-         Eigen::MatrixXd test_data(n_features, n_test_samples);
-         for (int i = 0; i < n_test_samples; ++i) {
-            test_data.col(i) = data.col(test_set[i]);
-         }
-
-         L2_SPA<Backend, Regularization> spa(
-            test_data, best_result.dictionary, initial_affiliations);
-
-      }
-   }
-
-   return best_result;
-}
-
-Factorization_result run_cross_validated_l2spa(
-   const Eigen::MatrixXd& data, const std::vector<std::vector<int> >& test_sets,
-   int n_components, double epsilon_states, int n_init)
-{
-
-}
-
 std::vector<Factorization_result> calculate_factorization(
    const Eigen::MatrixXd& data, const std::vector<int>& n_components,
    const std::vector<double>& epsilon_states,
-   int n_folds, int n_init, int random_seed, bool oos_cv, bool verbose)
+   int n_folds, int n_init, double tolerance, int max_iterations,
+   int random_seed, bool oos_cv, bool verbose)
 {
    if (verbose) {
       std::cout << "Running factorization algorithm\n";
@@ -505,14 +508,41 @@ std::vector<Factorization_result> calculate_factorization(
    std::vector<std::vector<int> > test_sets = generate_test_sets(
       data, n_folds, oos_cv, generator, verbose);
 
+   const int n_features = data.rows();
+   const int n_samples = data.cols();
+
+   Eigen::MatrixXd* initial_dictionary = nullptr;
+   Eigen::MatrixXd* initial_affiliations = nullptr;
+
+   std::size_t n_fits = 0;
    std::vector<Factorization_result> results;
    for (int k : n_components) {
       for (double eps : epsilon_states) {
+         Eigen::MatrixXd dictionary_guess(
+            Eigen::MatrixXd::Zero(n_features, k));
+         Eigen::MatrixXd affiliations_guess(
+            Eigen::MatrixXd::Zero(k, n_samples));
+
+         if (n_fits > 0 && results[n_fits - 1].success) {
+            dictionary_guess.block(0, 0, n_features, k - 1) =
+               results[n_fits - 1].dictionary;
+            affiliations_guess.block(0, 0, k - 1, n_samples) =
+               results[n_fits - 1].affiliations;
+
+            initial_dictionary = &dictionary_guess;
+            initial_affiliations = &affiliations_guess;
+         } else {
+            initial_dictionary = nullptr;
+            initial_affiliations = nullptr;
+         }
+
          Factorization_result result = run_cross_validated_l2spa(
-            data, test_sets, k, epsilon_states, n_init, initial_dictionary,
+            data, test_sets, k, eps, n_init,
+            tolerance, max_iterations, initial_dictionary,
             initial_affiliations, generator, verbose);
 
          results.push_back(result);
+         ++n_fits;
       }
    }
 
@@ -527,7 +557,7 @@ std::vector<Factorization_result> calculate_factorization(
 }
 
 void write_header_line(
-   std::ofstream& ofs, const std::vector<std::string>& fields)
+   std::ostream& ofs, const std::vector<std::string>& fields)
 {
    const std::size_t n_fields = fields.size();
 
@@ -543,7 +573,7 @@ void write_header_line(
    ofs << header;
 }
 
-void write_data_lines(std::ofstream& ofs, const Eigen::MatrixXd& data)
+void write_data_lines(std::ostream& ofs, const Eigen::MatrixXd& data)
 {
    const int n_fields = data.rows();
    const int n_samples = data.cols();
@@ -601,10 +631,142 @@ void write_trajectory_csv(
    write_csv(output_file, data, fields);
 }
 
+void write_summary_csv(const std::string& output_file,
+                       const std::vector<Factorization_result>& results)
+{
+   std::vector<std::string> fields;
+   fields.push_back("n_components");
+   fields.push_back("epsilon_states");
+   fields.push_back("n_fits");
+   fields.push_back("n_successful_fits");
+   fields.push_back("n_successful_validations");
+   fields.push_back("min_n_iter");
+   fields.push_back("max_n_iter");
+   fields.push_back("min_cost");
+   fields.push_back("max_cost");
+   fields.push_back("average_cost");
+   fields.push_back("min_training_approx_rmse");
+   fields.push_back("max_training_approx_rmse");
+   fields.push_back("average_training_approx_rmse");
+   fields.push_back("min_training_approx_rss");
+   fields.push_back("max_training_approx_rss");
+   fields.push_back("average_training_approx_rss");
+   fields.push_back("min_test_approx_rmse");
+   fields.push_back("max_test_approx_rmse");
+   fields.push_back("average_test_approx_rmse");
+   fields.push_back("min_test_approx_rss");
+   fields.push_back("max_test_approx_rss");
+   fields.push_back("average_test_approx_rss");
+   fields.push_back("min_time_seconds");
+   fields.push_back("max_time_seconds");
+   fields.push_back("average_time_seconds");
+   fields.push_back("success");
+
+   std::size_t n_factorizations = results.size();
+   std::size_t n_fields = fields.size();
+   Eigen::MatrixXd data(n_fields, n_factorizations);
+   for (std::size_t i = 0; i < n_factorizations; ++i) {
+      data(0, i) = results[i].n_components;
+      data(1, i) = results[i].epsilon_states;
+      data(2, i) = results[i].n_fits;
+      data(3, i) = results[i].n_successful_fits;
+      data(4, i) = results[i].n_successful_validations;
+      data(5, i) = results[i].min_n_iter;
+      data(6, i) = results[i].max_n_iter;
+      data(7, i) = results[i].min_cost;
+      data(8, i) = results[i].max_cost;
+      data(9, i) = results[i].average_cost;
+      data(10, i) = results[i].min_training_approx_rmse;
+      data(11, i) = results[i].max_training_approx_rmse;
+      data(12, i) = results[i].average_training_approx_rmse;
+      data(13, i) = results[i].min_training_approx_rss;
+      data(14, i) = results[i].max_training_approx_rss;
+      data(15, i) = results[i].average_training_approx_rss;
+      data(16, i) = results[i].min_test_approx_rmse;
+      data(17, i) = results[i].max_test_approx_rmse;
+      data(18, i) = results[i].average_test_approx_rmse;
+      data(19, i) = results[i].min_test_approx_rss;
+      data(20, i) = results[i].max_test_approx_rss;
+      data(21, i) = results[i].average_test_approx_rss;
+      data(22, i) = results[i].min_time_seconds;
+      data(23, i) = results[i].max_time_seconds;
+      data(24, i) = results[i].average_time_seconds;
+      data(25, i) = results[i].success ? 1 : 0;
+   }
+
+   write_csv(output_file, data, fields);
+}
+
+void write_summary(const std::vector<Factorization_result>& results)
+{
+   std::vector<std::string> fields;
+   fields.push_back("n_components");
+   fields.push_back("epsilon_states");
+   fields.push_back("n_fits");
+   fields.push_back("n_successful_fits");
+   fields.push_back("n_successful_validations");
+   fields.push_back("min_n_iter");
+   fields.push_back("max_n_iter");
+   fields.push_back("min_cost");
+   fields.push_back("max_cost");
+   fields.push_back("average_cost");
+   fields.push_back("min_training_approx_rmse");
+   fields.push_back("max_training_approx_rmse");
+   fields.push_back("average_training_approx_rmse");
+   fields.push_back("min_training_approx_rss");
+   fields.push_back("max_training_approx_rss");
+   fields.push_back("average_training_approx_rss");
+   fields.push_back("min_test_approx_rmse");
+   fields.push_back("max_test_approx_rmse");
+   fields.push_back("average_test_approx_rmse");
+   fields.push_back("min_test_approx_rss");
+   fields.push_back("max_test_approx_rss");
+   fields.push_back("average_test_approx_rss");
+   fields.push_back("min_time_seconds");
+   fields.push_back("max_time_seconds");
+   fields.push_back("average_time_seconds");
+   fields.push_back("success");
+
+   std::size_t n_factorizations = results.size();
+   std::size_t n_fields = fields.size();
+   Eigen::MatrixXd data(n_fields, n_factorizations);
+   for (std::size_t i = 0; i < n_factorizations; ++i) {
+      data(0, i) = results[i].n_components;
+      data(1, i) = results[i].epsilon_states;
+      data(2, i) = results[i].n_fits;
+      data(3, i) = results[i].n_successful_fits;
+      data(4, i) = results[i].n_successful_validations;
+      data(5, i) = results[i].min_n_iter;
+      data(6, i) = results[i].max_n_iter;
+      data(7, i) = results[i].min_cost;
+      data(8, i) = results[i].max_cost;
+      data(9, i) = results[i].average_cost;
+      data(10, i) = results[i].min_training_approx_rmse;
+      data(11, i) = results[i].max_training_approx_rmse;
+      data(12, i) = results[i].average_training_approx_rmse;
+      data(13, i) = results[i].min_training_approx_rss;
+      data(14, i) = results[i].max_training_approx_rss;
+      data(15, i) = results[i].average_training_approx_rss;
+      data(16, i) = results[i].min_test_approx_rmse;
+      data(17, i) = results[i].max_test_approx_rmse;
+      data(18, i) = results[i].average_test_approx_rmse;
+      data(19, i) = results[i].min_test_approx_rss;
+      data(20, i) = results[i].max_test_approx_rss;
+      data(21, i) = results[i].average_test_approx_rss;
+      data(22, i) = results[i].min_time_seconds;
+      data(23, i) = results[i].max_time_seconds;
+      data(24, i) = results[i].average_time_seconds;
+      data(25, i) = results[i].success ? 1 : 0;
+   }
+
+   write_header_line(std::cout, fields);
+   write_data_lines(std::cout, data);
+}
+
 int main(int argc, const char* argv[])
 {
    try {
-      const auto args = parse_cmd_line_args(argc, argv);
+      auto args = parse_cmd_line_args(argc, argv);
 
       if (args.n_samples < 1) {
          std::cerr << "Error: number of samples must be at least one."
@@ -614,6 +776,54 @@ int main(int argc, const char* argv[])
 
       if (args.time_step == 0) {
          std::cerr << "Error: time step must be non-zero."
+                   << std::endl;
+         return 1;
+      }
+
+      if (args.n_components.empty()) {
+         args.n_components.push_back(1);
+      }
+
+      if (args.epsilon_states.empty()) {
+         args.epsilon_states.push_back(0);
+      }
+
+      for (auto k : args.n_components) {
+         if (k < 1) {
+            std::cerr << "Error: number of components must be at least one."
+                      << std::endl;
+            return 1;
+         }
+      }
+
+      for (auto eps: args.epsilon_states) {
+         if (eps < 0) {
+            std::cerr << "Error: regularization must be non-negative."
+                      << std::endl;
+            return 1;
+         }
+      }
+
+      if (args.n_folds < 1) {
+         std::cerr << "Error: number of cross-validation folds must be"
+                   << " at least one." << std::endl;
+         return 1;
+      }
+
+      if (args.n_init < 1) {
+         std::cerr << "Error: number of initialization must be at least one."
+                   << std::endl;
+         return 1;
+      }
+
+      if (args.max_iterations < 1) {
+         std::cerr << "Error: maximum number of iterations must be at least one."
+                   << std::endl;
+         return 1;
+      }
+
+      if (args.tolerance <= 0) {
+         std::cerr << "Error: tolerance must be positive."
                    << std::endl;
          return 1;
       }
@@ -649,25 +859,27 @@ int main(int argc, const char* argv[])
 
       const auto results = calculate_factorization(
          data, args.n_components, args.epsilon_states,
-         args.n_folds, args.n_init, args.random_seed);
+         args.n_folds, args.n_init, args.tolerance,
+         args.max_iterations, args.random_seed,
+         args.out_of_sample_cv, args.verbose);
 
-      if (!args.dictionary_output_file.empty()) {
-         if (args.verbose) {
-            std::cout << "Writing dictionary to file: "
-                      << args.dictionary_output_file << '\n';
-         }
-         write_dictionary_csv(
-            args.dictionary_output_file, results);
-      }
+      // if (!args.dictionary_output_file.empty()) {
+      //    if (args.verbose) {
+      //       std::cout << "Writing dictionary to file: "
+      //                 << args.dictionary_output_file << '\n';
+      //    }
+      //    write_dictionary_csv(
+      //       args.dictionary_output_file, results);
+      // }
 
-      if (!args.affiliations_output_file.empty()) {
-         if (args.verbose) {
-            std::cout << "Writing affiliations to file: "
-                      << args.affiliations_output_file << '\n';
-         }
-         write_affiliations_csv(
-            args.affiliations_output_file, results);
-      }
+      // if (!args.affiliations_output_file.empty()) {
+      //    if (args.verbose) {
+      //       std::cout << "Writing affiliations to file: "
+      //                 << args.affiliations_output_file << '\n';
+      //    }
+      //    write_affiliations_csv(
+      //       args.affiliations_output_file, results);
+      // }
 
       if (!args.summary_output_file.empty()) {
          if (args.verbose) {

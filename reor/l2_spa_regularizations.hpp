@@ -51,7 +51,7 @@ void L2_SPA_No_regularization::dictionary_gradient(
 
    for (std::size_t i = 0; i < n_features; ++i) {
       for (std::size_t j = 0; j < n_components; ++j) {
-         backends::set_element(i, j, 0, jac_S);
+         backends::set_matrix_element(i, j, 0, jac_S);
       }
    }
 }
@@ -68,7 +68,7 @@ void L2_SPA_No_regularization::affiliations_gradient(
 
    for (std::size_t i = 0; i < n_components; ++i) {
       for (std::size_t j = 0; j < n_samples; ++j) {
-         backends::set_element(i, j, 0, jac_Gamma);
+         backends::set_matrix_element(i, j, 0, jac_Gamma);
       }
    }
 }
@@ -149,7 +149,7 @@ void L2_SPA_GPNH_regularization<Backend>::dictionary_gradient(
    if (n_components == 1) {
       for (std::size_t i = 0; i < n_features; ++i) {
          for (std::size_t j = 0; j < n_components; ++j) {
-            backends::set_element(i, j, 0, jac_S);
+            backends::set_matrix_element(i, j, 0, jac_S);
          }
       }
    } else {
@@ -176,7 +176,7 @@ void L2_SPA_GPNH_regularization<Backend>::affiliations_gradient(
 
    for (std::size_t i = 0; i < n_components; ++i) {
       for (std::size_t j = 0; j < n_samples; ++j) {
-         backends::set_element(i, j, 0, jac_Gamma);
+         backends::set_matrix_element(i, j, 0, jac_Gamma);
       }
    }
 }

@@ -1,4 +1,5 @@
 add_executable(run_lorenz63_l2spa
+  l2spa_fit_wrappers.cpp
   lorenz63_rk4_model.cpp
   run_lorenz63_l2spa.cpp)
 

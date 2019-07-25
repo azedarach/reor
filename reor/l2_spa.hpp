@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <deque>
+#include <stdexcept>
 #include <tuple>
 
 namespace reor {
@@ -42,6 +43,10 @@ public:
    double cost() const;
    int update_dictionary();
    int update_affiliations();
+
+   std::tuple<bool, int, double> iterate_until_cost_converged(double, int);
+   std::tuple<bool, int, double> iterate_affiliations_until_cost_converged(
+      double, int);
 
    const Matrix& get_data() const { return X; }
    const Matrix& get_dictionary() const { return S; }
@@ -326,6 +331,84 @@ int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
    alpha_Gamma = line_search_parameters.get_next_alpha(beta, sksk);
 
    return error;
+}
+
+template <class Backend, class RegularizationPolicy>
+std::tuple<bool, int, double>
+L2_SPA<Backend, RegularizationPolicy>::iterate_until_cost_converged(
+   double tolerance, int max_iterations)
+{
+   double old_cost = cost();
+   double new_cost = old_cost;
+   double cost_delta = std::numeric_limits<double>::max();
+   bool success = false;
+
+   int iter = 0;
+   while (iter < max_iterations) {
+      old_cost = new_cost;
+
+      update_dictionary();
+
+      const double tmp_cost = cost();
+      if (tmp_cost > old_cost) {
+         throw std::runtime_error(
+            "factorization cost increased after dictionary update");
+      }
+
+      update_affiliations();
+
+      new_cost = cost();
+      cost_delta = new_cost - old_cost;
+
+      if (cost_delta > 0) {
+         throw std::runtime_error(
+            "factorization cost increased after affiliations update");
+      }
+
+      if (std::abs(cost_delta) < tolerance) {
+         success = true;
+         break;
+      }
+
+      ++iter;
+   }
+
+   return std::make_tuple(success, iter, new_cost);
+}
+
+template <class Backend, class RegularizationPolicy>
+std::tuple<bool, int, double>
+L2_SPA<Backend, RegularizationPolicy>::iterate_affiliations_until_cost_converged(
+   double tolerance, int max_iterations)
+{
+   double old_cost = cost();
+   double new_cost = old_cost;
+   double cost_delta = std::numeric_limits<double>::max();
+   bool success = false;
+
+   int iter = 0;
+   while (iter < max_iterations) {
+      old_cost = new_cost;
+
+      update_affiliations();
+
+      new_cost = cost();
+      cost_delta = new_cost - old_cost;
+
+      if (cost_delta > 0) {
+         throw std::runtime_error(
+            "factorization cost increased after affiliations update");
+      }
+
+      if (std::abs(cost_delta) < tolerance) {
+         success = true;
+         break;
+      }
+
+      ++iter;
+   }
+
+   return std::make_tuple(success, iter, new_cost);
 }
 
 } // namespace reor
