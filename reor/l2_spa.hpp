@@ -140,7 +140,7 @@ double L2_SPA<Backend, RegularizationPolicy>::loss_function() const
    const double residual = backends::matrix_residual_fro_norm(
       X, S, Gamma);
 
-   return residual * normalization;
+   return residual * residual * normalization;
 }
 
 template <class Backend, class RegularizationPolicy>
