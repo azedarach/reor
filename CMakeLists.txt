@@ -45,6 +45,10 @@ if(TARGET Eigen3::Eigen)
     Eigen3::Eigen)
 endif()
 
+set_target_properties(reor PROPERTIES
+  CXX_STANDARD 11
+  CXX_EXTENSIONS OFF)
+
 install(DIRECTORY reor DESTINATION ${REOR_INSTALL_INCLUDE_DIR})
 
 install(TARGETS
