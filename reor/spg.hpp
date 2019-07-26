@@ -6,7 +6,7 @@ namespace reor {
 template <typename T = double>
 struct SPG_line_search_parameters {
    T alpha_min{1e-3};
-   T alpha_max{10};
+   T alpha_max{1e3};
    T sigma_1{0.1};
    T sigma_2{0.9};
    T gamma{1e-4};
