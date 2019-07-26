@@ -365,12 +365,12 @@ L2_SPA<Backend, RegularizationPolicy>::iterate_until_cost_converged(
             "factorization cost increased after affiliations update");
       }
 
+      ++iter;
+
       if (std::abs(cost_delta) < tolerance) {
          success = true;
          break;
       }
-
-      ++iter;
    }
 
    return std::make_tuple(success, iter, new_cost);
