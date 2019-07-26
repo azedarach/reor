@@ -440,6 +440,9 @@ Program_options parse_cmd_line_args(int argc, const char* argv[])
          options.z0 = std::stod(z0);
          continue;
       }
+
+      throw std::runtime_error(
+         "unrecognized command line option '" + opt + "'");
    }
 
    return options;
