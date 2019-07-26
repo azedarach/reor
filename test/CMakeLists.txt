@@ -26,6 +26,11 @@ if(TARGET Eigen3::Eigen)
         PRIVATE HAVE_EIGEN)
 endif()
 
+
+set_target_properties(test_reor PROPERTIES
+  CXX_STANDARD 11
+  CXX_EXTENSIONS OFF)
+
 target_link_libraries(test_reor
     Reor::reor)
 
