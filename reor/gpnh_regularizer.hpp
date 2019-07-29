@@ -1,17 +1,21 @@
-#ifndef REOR_L2_SPA_REGULARIZATIONS_HPP_INCLUDED
-#define REOR_L2_SPA_REGULARIZATIONS_HPP_INCLUDED
+#ifndef REOR_GPNH_REGULARIZER_HPP_INCLUDED
+#define REOR_GPNH_REGULARIZER_HPP_INCLUDED
 
 /**
- * @file l2_spa_regularizations.hpp
- * @brief contains definitions of regularizations for l2-SPA
+ * @file gpnh_regularizer.hpp
+ * @brief contains definition of GPNH regularization
  */
 
 #include "backends.hpp"
 
 namespace reor {
 
+/**
+ * @class GPNH_regularizer
+ * @brief implements GPNH dictionary regularization
+ */
 template <class Backend>
-class L2_SPA_GPNH_regularization {
+class GPNH_regularizer {
 public:
 
    void set_epsilon_states(double);
@@ -32,14 +36,14 @@ public:
                               const AffiliationsMatrix&, JacobianMatrix&) const;
 
 protected:
-   ~L2_SPA_GPNH_regularization() = default;
+   ~GPNH_regularizer() = default;
 
 private:
    double epsilon_S{0};
 };
 
 template <class Backend>
-void L2_SPA_GPNH_regularization<Backend>::set_epsilon_states(double eps)
+void GPNH_regularizer<Backend>::set_epsilon_states(double eps)
 {
    if (eps < 0) {
       throw std::runtime_error("regularization parameter must be non-negative");
@@ -50,7 +54,7 @@ void L2_SPA_GPNH_regularization<Backend>::set_epsilon_states(double eps)
 
 template <class Backend>
 template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
-double L2_SPA_GPNH_regularization<Backend>::penalty(
+double GPNH_regularizer<Backend>::penalty(
    const DataMatrix& /* X */, const StatesMatrix& S,
    const AffiliationsMatrix& /* Gamma */) const
 {
@@ -76,7 +80,7 @@ double L2_SPA_GPNH_regularization<Backend>::penalty(
 template <class Backend>
 template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
           class JacobianMatrix>
-void L2_SPA_GPNH_regularization<Backend>::dictionary_gradient(
+void GPNH_regularizer<Backend>::dictionary_gradient(
    const DataMatrix& /* X */, const StatesMatrix& S,
    const AffiliationsMatrix& /* Gamma */, JacobianMatrix& jac_S) const
 {
@@ -104,7 +108,7 @@ void L2_SPA_GPNH_regularization<Backend>::dictionary_gradient(
 template <class Backend>
 template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
           class JacobianMatrix>
-void L2_SPA_GPNH_regularization<Backend>::affiliations_gradient(
+void GPNH_regularizer<Backend>::affiliations_gradient(
    const DataMatrix& /* X */, const StatesMatrix& /* S */,
    const AffiliationsMatrix& /* Gamma */, JacobianMatrix& jac_Gamma) const
 {

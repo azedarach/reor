@@ -1,5 +1,6 @@
 #include "catch.hpp"
 
+#include "reor/gpnh_regularizer.hpp"
 #include "reor/l2_spa.hpp"
 #include "reor/numerics_helpers.hpp"
 
@@ -183,7 +184,7 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
           "[l2_spa][eigen_backend]")
 {
    using Backend = backends::Eigen_backend<double>;
-   using Regularization = L2_SPA_GPNH_regularization<Backend>;
+   using Regularization = GPNH_regularizer<Backend>;
 
    SECTION("Single dictionary update reduces cost function")
    {
@@ -446,7 +447,7 @@ TEST_CASE("Test affiliations update with GPNH regularization and Eigen matrices"
           "[l2_spa][eigen_backend]")
 {
    using Backend = backends::Eigen_backend<double>;
-   using Regularization = L2_SPA_GPNH_regularization<Backend>;
+   using Regularization = GPNH_regularizer<Backend>;
 
    SECTION("Single affiliations update reduces cost function")
    {

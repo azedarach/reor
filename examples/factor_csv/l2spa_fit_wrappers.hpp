@@ -3,6 +3,7 @@
 
 #include "reor/backend_interface.hpp"
 #include "reor/backends/eigen_backend.hpp"
+#include "reor/gpnh_regularizer.hpp"
 #include "reor/l2_spa.hpp"
 #include "reor/matrix_factorization_helpers.hpp"
 
@@ -72,7 +73,7 @@ std::tuple<bool, double, double> validate_l2spa(
    Generator& generator)
 {
    using Backend = backends::Eigen_backend<double>;
-   using Regularization = L2_SPA_GPNH_regularization<Backend>;
+   using Regularization = GPNH_regularizer<Backend>;
 
    const int n_samples = test_data.cols();
    const int n_components = dictionary.cols();
@@ -110,7 +111,7 @@ Fit_result run_l2spa(
    double tolerance, int max_iterations, Generator& generator)
 {
    using Backend = backends::Eigen_backend<double>;
-   using Regularization = L2_SPA_GPNH_regularization<Backend>;
+   using Regularization = GPNH_regularizer<Backend>;
 
    Fit_result best_result;
 

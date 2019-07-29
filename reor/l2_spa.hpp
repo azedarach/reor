@@ -7,7 +7,6 @@
  */
 
 #include "backend_interface.hpp"
-#include "l2_spa_regularizations.hpp"
 #include "numerics_helpers.hpp"
 #include "spg.hpp"
 #include "trivial_matrix_factorization_regularizer.hpp"

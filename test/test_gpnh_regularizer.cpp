@@ -1,7 +1,7 @@
 #include "catch.hpp"
 #include "comparison_helpers.hpp"
 
-#include "reor/l2_spa_regularizations.hpp"
+#include "reor/gpnh_regularizer.hpp"
 #include "reor/numerics_helpers.hpp"
 
 using namespace reor;
@@ -16,12 +16,12 @@ using namespace reor;
 namespace {
 
 struct GPNH_eigen_host :
-      public L2_SPA_GPNH_regularization<backends::Eigen_backend<double> > {};
+      public GPNH_regularizer<backends::Eigen_backend<double> > {};
 
 } // anonymous namespace
 
 TEST_CASE("Test GPNH regularization with Eigen matrices",
-          "[l2_spa][l2_spa_regularizations][eigen_backend]")
+          "[matrix_factorizations][gpnh_regularizer][eigen_backend]")
 {
    SECTION("Throws when given negative regularization parameter")
    {
