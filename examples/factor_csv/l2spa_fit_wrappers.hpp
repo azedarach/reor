@@ -4,6 +4,7 @@
 #include "reor/backend_interface.hpp"
 #include "reor/backends/eigen_backend.hpp"
 #include "reor/l2_spa.hpp"
+#include "reor/matrix_factorization_helpers.hpp"
 
 #include <Eigen/Core>
 
@@ -83,8 +84,8 @@ std::tuple<bool, double, double> validate_l2spa(
    spa.set_epsilon_states(epsilon_states);
 
    std::tuple<bool, int, double> result =
-      spa.iterate_affiliations_until_cost_converged(
-         tolerance, max_iterations);
+      iterate_factors_until_delta_cost_converged(
+         spa, tolerance, max_iterations, false, true);
 
    const bool success = std::get<0>(result);
 
@@ -158,7 +159,8 @@ Fit_result run_l2spa(
       spa.set_epsilon_states(epsilon_states);
 
       const std::tuple<bool, int, double> iteration_result =
-         spa.iterate_until_cost_converged(tolerance, max_iterations);
+         iterate_factors_until_delta_cost_converged(
+            spa, tolerance, max_iterations, true, true);
 
       const bool success = std::get<0>(iteration_result);
       const int n_iter = std::get<1>(iteration_result);
@@ -218,8 +220,8 @@ Fit_result run_l2spa(
          data, best_result.dictionary, full_dataset_affiliations);
       spa.set_epsilon_states(epsilon_states);
 
-      const auto result = spa.iterate_affiliations_until_cost_converged(
-         tolerance, max_iterations);
+      const auto result = iterate_factors_until_delta_cost_converged(
+         spa, tolerance, max_iterations, false, true);
       const bool affiliations_success = std::get<0>(result);
       if (affiliations_success) {
          best_result.affiliations = spa.get_affiliations();
