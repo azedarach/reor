@@ -52,7 +52,7 @@ TEST_CASE("Test trivial regularization with Eigen matrices",
       CHECK(is_equal(jac_S, Eigen::MatrixXd::Zero(n_features, n_components)));
    }
 
-   SECTION("Returns zero affiliations jacobian for arbitrary matrices")
+   SECTION("Returns zero weights jacobian for arbitrary matrices")
    {
       const int n_features = 32;
       const int n_samples = 700;
@@ -67,7 +67,7 @@ TEST_CASE("Test trivial regularization with Eigen matrices",
       REQUIRE(!is_equal(jac_Gamma,
                         Eigen::MatrixXd::Zero(n_components, n_samples)));
 
-      Regularization::affiliations_gradient(X, S, Gamma, jac_Gamma);
+      Regularization::weights_gradient(X, S, Gamma, jac_Gamma);
 
       CHECK(is_equal(jac_Gamma,
                      Eigen::MatrixXd::Zero(n_components, n_samples)));

@@ -21,19 +21,19 @@ public:
    void set_epsilon_states(double);
    double get_epsilon_states() const { return epsilon_S; }
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
    double penalty(const DataMatrix&, const StatesMatrix&,
-                  const AffiliationsMatrix&) const;
+                  const WeightsMatrix&) const;
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
              class JacobianMatrix>
    void dictionary_gradient(const DataMatrix&, const StatesMatrix&,
-                            const AffiliationsMatrix&, JacobianMatrix&) const;
+                            const WeightsMatrix&, JacobianMatrix&) const;
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
              class JacobianMatrix>
-   void affiliations_gradient(const DataMatrix&, const StatesMatrix&,
-                              const AffiliationsMatrix&, JacobianMatrix&) const;
+   void weights_gradient(const DataMatrix&, const StatesMatrix&,
+                              const WeightsMatrix&, JacobianMatrix&) const;
 
 protected:
    ~GPNH_regularizer() = default;
@@ -53,10 +53,10 @@ void GPNH_regularizer<Backend>::set_epsilon_states(double eps)
 }
 
 template <class Backend>
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
 double GPNH_regularizer<Backend>::penalty(
    const DataMatrix& /* X */, const StatesMatrix& S,
-   const AffiliationsMatrix& /* Gamma */) const
+   const WeightsMatrix& /* Gamma */) const
 {
    double value = 0;
 
@@ -78,11 +78,11 @@ double GPNH_regularizer<Backend>::penalty(
 }
 
 template <class Backend>
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
           class JacobianMatrix>
 void GPNH_regularizer<Backend>::dictionary_gradient(
    const DataMatrix& /* X */, const StatesMatrix& S,
-   const AffiliationsMatrix& /* Gamma */, JacobianMatrix& jac_S) const
+   const WeightsMatrix& /* Gamma */, JacobianMatrix& jac_S) const
 {
    const std::size_t n_components = backends::cols(S);
    const std::size_t n_features = backends::rows(S);
@@ -106,11 +106,11 @@ void GPNH_regularizer<Backend>::dictionary_gradient(
 }
 
 template <class Backend>
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
           class JacobianMatrix>
-void GPNH_regularizer<Backend>::affiliations_gradient(
+void GPNH_regularizer<Backend>::weights_gradient(
    const DataMatrix& /* X */, const StatesMatrix& /* S */,
-   const AffiliationsMatrix& /* Gamma */, JacobianMatrix& jac_Gamma) const
+   const WeightsMatrix& /* Gamma */, JacobianMatrix& jac_Gamma) const
 {
    const std::size_t n_components = backends::rows(jac_Gamma);
    const std::size_t n_samples = backends::cols(jac_Gamma);

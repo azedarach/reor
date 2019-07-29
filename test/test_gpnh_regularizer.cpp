@@ -72,7 +72,7 @@ TEST_CASE("Test GPNH regularization with Eigen matrices",
       CHECK(is_equal(jac_S, Eigen::MatrixXd::Zero(n_features, n_components)));
    }
 
-   SECTION("Returns zero affiliations jacobian for arbitrary matrices")
+   SECTION("Returns zero weights jacobian for arbitrary matrices")
    {
       const int n_features = 12;
       const int n_samples = 50;
@@ -91,7 +91,7 @@ TEST_CASE("Test GPNH regularization with Eigen matrices",
       const double test_epsilon_states = 1.;
       host_instance.set_epsilon_states(test_epsilon_states);
 
-      host_instance.affiliations_gradient(X, S, Gamma, jac_Gamma);
+      host_instance.weights_gradient(X, S, Gamma, jac_Gamma);
 
       CHECK(is_equal(jac_Gamma,
                      Eigen::MatrixXd::Zero(n_components, n_samples)));

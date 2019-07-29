@@ -23,7 +23,7 @@ double calculate_rmse(const Eigen::MatrixXd&, const Eigen::MatrixXd&);
 
 struct Fit_result {
    Eigen::MatrixXd dictionary{};
-   Eigen::MatrixXd affiliations{};
+   Eigen::MatrixXd weights{};
    double cost{std::numeric_limits<double>::max()};
    double training_rss{std::numeric_limits<double>::max()};
    double training_rmse{std::numeric_limits<double>::max()};
@@ -37,7 +37,7 @@ struct Fit_result {
 
 struct Factorization_result {
    Eigen::MatrixXd dictionary{};
-   Eigen::MatrixXd affiliations{};
+   Eigen::MatrixXd weights{};
    int n_components{1};
    double epsilon_states{0};
    std::size_t n_fits{0};
@@ -77,11 +77,11 @@ std::tuple<bool, double, double> validate_l2spa(
 
    const int n_samples = test_data.cols();
    const int n_components = dictionary.cols();
-   Eigen::MatrixXd initial_affiliations(n_components, n_samples);
-   random_left_stochastic_matrix(initial_affiliations, generator);
+   Eigen::MatrixXd initial_weights(n_components, n_samples);
+   random_left_stochastic_matrix(initial_weights, generator);
 
    L2_SPA<Backend, Regularization> spa(test_data, dictionary,
-                                       initial_affiliations);
+                                       initial_weights);
    spa.set_epsilon_states(epsilon_states);
 
    std::tuple<bool, int, double> result =
@@ -94,7 +94,7 @@ std::tuple<bool, double, double> validate_l2spa(
    double test_rmse = std::numeric_limits<double>::max();
    if (success) {
       const Eigen::MatrixXd reconstruction =
-         spa.get_dictionary() * spa.get_affiliations();
+         spa.get_dictionary() * spa.get_weights();
 
       test_rss = calculate_rss(test_data, reconstruction);
       test_rmse = calculate_rmse(test_data, reconstruction);
@@ -107,7 +107,7 @@ template <class Generator>
 Fit_result run_l2spa(
    const Eigen::MatrixXd& data, const std::vector<int>& test_set,
    int n_components, double epsilon_states, int n_init,
-   Eigen::MatrixXd* initial_dictionary, Eigen::MatrixXd* initial_affiliations,
+   Eigen::MatrixXd* initial_dictionary, Eigen::MatrixXd* initial_weights,
    double tolerance, int max_iterations, Generator& generator)
 {
    using Backend = backends::Eigen_backend<double>;
@@ -135,7 +135,7 @@ Fit_result run_l2spa(
    }
 
    Eigen::MatrixXd dictionary(n_features, n_components);
-   Eigen::MatrixXd affiliations(n_components, n_training_samples);
+   Eigen::MatrixXd weights(n_components, n_training_samples);
 
    for (int i = 0; i < n_init; ++i) {
       const auto start_time = std::chrono::high_resolution_clock::now();
@@ -146,16 +146,16 @@ Fit_result run_l2spa(
          dictionary = Eigen::MatrixXd::Random(n_features, n_components);
       }
 
-      if (i == 0 && initial_affiliations) {
+      if (i == 0 && initial_weights) {
          for (int i = 0; i < n_training_samples; ++i) {
-            affiliations.col(i) = initial_affiliations->col(i);
+            weights.col(i) = initial_weights->col(i);
          }
       } else {
-         random_left_stochastic_matrix(affiliations, generator);
+         random_left_stochastic_matrix(weights, generator);
       }
 
       L2_SPA<Backend, Regularization> spa(
-         training_data, dictionary, affiliations);
+         training_data, dictionary, weights);
       spa.set_epsilon_states(epsilon_states);
 
       const std::tuple<bool, int, double> iteration_result =
@@ -171,7 +171,7 @@ Fit_result run_l2spa(
 
       if (success && cost < best_result.cost) {
          best_result.dictionary = spa.get_dictionary();
-         best_result.affiliations = spa.get_affiliations();
+         best_result.weights = spa.get_weights();
          best_result.cost = cost;
          best_result.n_iter = n_iter;
          best_result.time_seconds = total_time.count();
@@ -181,7 +181,7 @@ Fit_result run_l2spa(
 
    if (best_result.success) {
       const Eigen::MatrixXd reconstruction =
-         best_result.dictionary * best_result.affiliations;
+         best_result.dictionary * best_result.weights;
       best_result.training_rmse = calculate_rmse(training_data, reconstruction);
       best_result.training_rss = calculate_rss(training_data, reconstruction);
 
@@ -210,21 +210,21 @@ Fit_result run_l2spa(
       }
    }
 
-   // as a final step, compute affiliations for all elements of
+   // as a final step, compute weights for all elements of
    // original data set
    if (best_result.success) {
-      Eigen::MatrixXd full_dataset_affiliations(n_components, n_samples);
-      random_left_stochastic_matrix(full_dataset_affiliations, generator);
+      Eigen::MatrixXd full_dataset_weights(n_components, n_samples);
+      random_left_stochastic_matrix(full_dataset_weights, generator);
 
       L2_SPA<Backend, Regularization> spa(
-         data, best_result.dictionary, full_dataset_affiliations);
+         data, best_result.dictionary, full_dataset_weights);
       spa.set_epsilon_states(epsilon_states);
 
       const auto result = iterate_factors_until_delta_cost_converged(
          spa, tolerance, max_iterations, false, true);
-      const bool affiliations_success = std::get<0>(result);
-      if (affiliations_success) {
-         best_result.affiliations = spa.get_affiliations();
+      const bool weights_success = std::get<0>(result);
+      if (weights_success) {
+         best_result.weights = spa.get_weights();
       }
    }
 
@@ -236,7 +236,7 @@ Factorization_result run_cross_validated_l2spa(
    const Eigen::MatrixXd& data, const std::vector<std::vector<int> >& test_sets,
    int n_components, double epsilon_states, int n_init,
    double tolerance, int max_iterations,
-   Eigen::MatrixXd* initial_dictionary, Eigen::MatrixXd* initial_affiliations,
+   Eigen::MatrixXd* initial_dictionary, Eigen::MatrixXd* initial_weights,
    Generator& generator, bool verbose)
 {
    if (verbose) {
@@ -280,7 +280,7 @@ Factorization_result run_cross_validated_l2spa(
    for (const auto test_set : test_sets) {
       const auto result = run_l2spa(
          data, test_set, n_components, epsilon_states, n_init,
-         initial_dictionary, initial_affiliations,
+         initial_dictionary, initial_weights,
          tolerance, max_iterations, generator);
 
       fit_results.push_back(result);
@@ -382,7 +382,7 @@ Factorization_result run_cross_validated_l2spa(
 
    Factorization_result result;
    result.dictionary = fit_results[min_cost_index].dictionary;
-   result.affiliations = fit_results[min_cost_index].affiliations;
+   result.weights = fit_results[min_cost_index].weights;
    result.n_components = n_components;
    result.epsilon_states = epsilon_states;
    result.n_fits = index;

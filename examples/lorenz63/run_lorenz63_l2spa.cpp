@@ -515,7 +515,7 @@ std::vector<Factorization_result> calculate_factorization(
    const int n_samples = data.cols();
 
    Eigen::MatrixXd* initial_dictionary = nullptr;
-   Eigen::MatrixXd* initial_affiliations = nullptr;
+   Eigen::MatrixXd* initial_weights = nullptr;
 
    std::size_t n_fits = 0;
    std::vector<Factorization_result> results;
@@ -523,26 +523,26 @@ std::vector<Factorization_result> calculate_factorization(
       for (double eps : epsilon_states) {
          Eigen::MatrixXd dictionary_guess(
             Eigen::MatrixXd::Zero(n_features, k));
-         Eigen::MatrixXd affiliations_guess(
+         Eigen::MatrixXd weights_guess(
             Eigen::MatrixXd::Zero(k, n_samples));
 
          if (n_fits > 0 && results[n_fits - 1].success) {
             dictionary_guess.block(0, 0, n_features, k - 1) =
                results[n_fits - 1].dictionary;
-            affiliations_guess.block(0, 0, k - 1, n_samples) =
-               results[n_fits - 1].affiliations;
+            weights_guess.block(0, 0, k - 1, n_samples) =
+               results[n_fits - 1].weights;
 
             initial_dictionary = &dictionary_guess;
-            initial_affiliations = &affiliations_guess;
+            initial_weights = &weights_guess;
          } else {
             initial_dictionary = nullptr;
-            initial_affiliations = nullptr;
+            initial_weights = nullptr;
          }
 
          Factorization_result result = run_cross_validated_l2spa(
             data, test_sets, k, eps, n_init,
             tolerance, max_iterations, initial_dictionary,
-            initial_affiliations, generator, verbose);
+            initial_weights, generator, verbose);
 
          results.push_back(result);
          ++n_fits;
@@ -875,13 +875,13 @@ int main(int argc, const char* argv[])
       //       args.dictionary_output_file, results);
       // }
 
-      // if (!args.affiliations_output_file.empty()) {
+      // if (!args.weights_output_file.empty()) {
       //    if (args.verbose) {
-      //       std::cout << "Writing affiliations to file: "
-      //                 << args.affiliations_output_file << '\n';
+      //       std::cout << "Writing weights to file: "
+      //                 << args.weights_output_file << '\n';
       //    }
-      //    write_affiliations_csv(
-      //       args.affiliations_output_file, results);
+      //    write_weights_csv(
+      //       args.weights_output_file, results);
       // }
 
       if (!args.summary_output_file.empty()) {

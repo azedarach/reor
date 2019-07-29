@@ -15,36 +15,36 @@ namespace reor {
  * @brief provides trivial (i.e., no) regularization for matrix factors
  */
 struct Trivial_matrix_factorization_regularizer {
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
    static double penalty(const DataMatrix&, const StatesMatrix&,
-                         const AffiliationsMatrix&);
+                         const WeightsMatrix&);
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
              class JacobianMatrix>
    static void dictionary_gradient(const DataMatrix&, const StatesMatrix&,
-                                   const AffiliationsMatrix&,
+                                   const WeightsMatrix&,
                                    JacobianMatrix&);
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
              class JacobianMatrix>
-   static void affiliations_gradient(const DataMatrix&, const StatesMatrix&,
-                                     const AffiliationsMatrix&,
-                                     JacobianMatrix&);
+   static void weights_gradient(const DataMatrix&, const StatesMatrix&,
+                                const WeightsMatrix&,
+                                JacobianMatrix&);
 };
 
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
 double Trivial_matrix_factorization_regularizer::penalty(
    const DataMatrix& /* X */, const StatesMatrix& /* S */,
-   const AffiliationsMatrix& /* Gamma */)
+   const WeightsMatrix& /* Gamma */)
 {
    return 0;
 }
 
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
           class JacobianMatrix>
 void Trivial_matrix_factorization_regularizer::dictionary_gradient(
    const DataMatrix& /* X */, const StatesMatrix& /* S */,
-   const AffiliationsMatrix& /* Gamma */,
+   const WeightsMatrix& /* Gamma */,
    JacobianMatrix& jac_S)
 {
    const std::size_t n_features = backends::rows(jac_S);
@@ -57,11 +57,11 @@ void Trivial_matrix_factorization_regularizer::dictionary_gradient(
    }
 }
 
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix,
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix,
           class JacobianMatrix>
-void Trivial_matrix_factorization_regularizer::affiliations_gradient(
+void Trivial_matrix_factorization_regularizer::weights_gradient(
    const DataMatrix& /* X */, const StatesMatrix& /* S */,
-   const AffiliationsMatrix& /* Gamma */,
+   const WeightsMatrix& /* Gamma */,
    JacobianMatrix& jac_Gamma)
 {
    const std::size_t n_components = backends::rows(jac_Gamma);

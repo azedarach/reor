@@ -313,12 +313,12 @@ TEST_CASE("Test dictionary update with GPNH regularization and Eigen matrices",
    }
 }
 
-TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
+TEST_CASE("Test weights update with no regularization and Eigen matrices",
           "[l2_spa][eigen_backend]")
 {
    using Backend = backends::Eigen_backend<double>;
 
-   SECTION("Single affiliations update reduces cost function")
+   SECTION("Single weights update reduces cost function")
    {
       const int n_features = 25;
       const int n_components = 6;
@@ -344,12 +344,12 @@ TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
 
       const double initial_cost = spa.cost();
 
-      const int error = spa.update_affiliations();
+      const int error = spa.update_weights();
 
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
-      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+      const Eigen::MatrixXd updated_Gamma(spa.get_weights());
 
       CHECK(final_cost < initial_cost);
       CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
@@ -383,12 +383,12 @@ TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
 
       const double initial_cost = spa.cost();
 
-      const int error = spa.update_affiliations();
+      const int error = spa.update_weights();
 
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
-      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+      const Eigen::MatrixXd updated_Gamma(spa.get_weights());
 
       CHECK(is_equal(initial_cost, final_cost, tolerance));
       CHECK(is_equal(Gamma, updated_Gamma, tolerance));
@@ -427,13 +427,13 @@ TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
       int iter = 0;
       while (std::abs(cost_delta) > tolerance && iter < max_iter) {
          old_cost = new_cost;
-         spa.update_affiliations();
+         spa.update_weights();
          new_cost = spa.cost();
 
          cost_delta = new_cost - old_cost;
          CHECK(cost_delta <= 0);
 
-         const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+         const Eigen::MatrixXd updated_Gamma(spa.get_weights());
          CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
 
          ++iter;
@@ -443,13 +443,13 @@ TEST_CASE("Test affiliations update with no regularization and Eigen matrices",
    }
 }
 
-TEST_CASE("Test affiliations update with GPNH regularization and Eigen matrices",
+TEST_CASE("Test weights update with GPNH regularization and Eigen matrices",
           "[l2_spa][eigen_backend]")
 {
    using Backend = backends::Eigen_backend<double>;
    using Regularization = GPNH_regularizer<Backend>;
 
-   SECTION("Single affiliations update reduces cost function")
+   SECTION("Single weights update reduces cost function")
    {
       const int n_features = 25;
       const int n_components = 6;
@@ -477,12 +477,12 @@ TEST_CASE("Test affiliations update with GPNH regularization and Eigen matrices"
 
       const double initial_cost = spa.cost();
 
-      const int error = spa.update_affiliations();
+      const int error = spa.update_weights();
 
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
-      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+      const Eigen::MatrixXd updated_Gamma(spa.get_weights());
 
       CHECK(final_cost < initial_cost);
       CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
@@ -518,12 +518,12 @@ TEST_CASE("Test affiliations update with GPNH regularization and Eigen matrices"
 
       const double initial_cost = spa.cost();
 
-      const int error = spa.update_affiliations();
+      const int error = spa.update_weights();
 
       REQUIRE(error == 0);
 
       const double final_cost = spa.cost();
-      const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+      const Eigen::MatrixXd updated_Gamma(spa.get_weights());
 
       CHECK(is_equal(initial_cost, final_cost, tolerance));
       CHECK(is_equal(Gamma, updated_Gamma, tolerance));
@@ -564,13 +564,13 @@ TEST_CASE("Test affiliations update with GPNH regularization and Eigen matrices"
       int iter = 0;
       while (std::abs(cost_delta) > tolerance && iter < max_iter) {
          old_cost = new_cost;
-         spa.update_affiliations();
+         spa.update_weights();
          new_cost = spa.cost();
 
          cost_delta = new_cost - old_cost;
          CHECK(cost_delta <= 0);
 
-         const Eigen::MatrixXd updated_Gamma(spa.get_affiliations());
+         const Eigen::MatrixXd updated_Gamma(spa.get_weights());
          CHECK(is_left_stochastic_matrix(updated_Gamma, 1e-12));
 
          ++iter;

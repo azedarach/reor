@@ -28,8 +28,8 @@ public:
    using Matrix = typename Backend::Matrix;
    using Real = typename backends::matrix_traits<Matrix>::real_element_type;
 
-   template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
-   L2_SPA(const DataMatrix&, const StatesMatrix&, const AffiliationsMatrix&);
+   template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
+   L2_SPA(const DataMatrix&, const StatesMatrix&, const WeightsMatrix&);
    ~L2_SPA() = default;
    L2_SPA(const L2_SPA&) = default;
    L2_SPA(L2_SPA&&) = default;
@@ -41,12 +41,13 @@ public:
    }
 
    double cost() const;
+
    int update_dictionary();
-   int update_affiliations();
+   int update_weights();
 
    const Matrix& get_data() const { return X; }
    const Matrix& get_dictionary() const { return S; }
-   const Matrix& get_affiliations() const { return Gamma; }
+   const Matrix& get_weights() const { return Gamma; }
 
 private:
    Matrix X{};
@@ -76,15 +77,15 @@ private:
    double loss_function() const;
    void update_dictionary_gradient();
    std::tuple<int, double> dictionary_line_search();
-   void update_affiliations_gradient();
-   std::tuple<int, double> affiliations_line_search();
+   void update_weights_gradient();
+   std::tuple<int, double> weights_line_search();
 };
 
 template <class Backend, class RegularizationPolicy>
-template <class DataMatrix, class StatesMatrix, class AffiliationsMatrix>
+template <class DataMatrix, class StatesMatrix, class WeightsMatrix>
 L2_SPA<Backend, RegularizationPolicy>::L2_SPA(
    const DataMatrix& X_, const StatesMatrix& S_,
-   const AffiliationsMatrix& Gamma_)
+   const WeightsMatrix& Gamma_)
 {
    const auto n_features = backends::rows(X_);
    const auto n_samples = backends::cols(X_);
@@ -97,12 +98,12 @@ L2_SPA<Backend, RegularizationPolicy>::L2_SPA(
 
    if (backends::cols(Gamma_) != n_samples) {
       throw std::runtime_error(
-         "number of columns in affiliations does not match number of samples");
+         "number of columns in weights does not match number of samples");
    }
 
    if (backends::rows(Gamma_) != n_components) {
       throw std::runtime_error(
-         "number of rows in affiliations does not match number of components");
+         "number of rows in weights does not match number of components");
    }
 
    X = Backend::copy_matrix(X_);
@@ -234,13 +235,13 @@ int L2_SPA<Backend, RegularizationPolicy>::update_dictionary()
 }
 
 template <class Backend, class RegularizationPolicy>
-void L2_SPA<Backend, RegularizationPolicy>::update_affiliations_gradient()
+void L2_SPA<Backend, RegularizationPolicy>::update_weights_gradient()
 {
    const auto n_features = backends::rows(X);
    const auto n_samples = backends::cols(X);
    const double normalization = 1.0 / (n_features * n_samples);
 
-   RegularizationPolicy::affiliations_gradient(X, S, Gamma, grad_Gamma);
+   RegularizationPolicy::weights_gradient(X, S, Gamma, grad_Gamma);
 
    backends::gemm(-2 * normalization, S, X, 1, grad_Gamma,
                   backends::Op_flag::Transpose, backends::Op_flag::None);
@@ -249,7 +250,7 @@ void L2_SPA<Backend, RegularizationPolicy>::update_affiliations_gradient()
 
 template <class Backend, class RegularizationPolicy>
 std::tuple<int, double>
-L2_SPA<Backend, RegularizationPolicy>::affiliations_line_search()
+L2_SPA<Backend, RegularizationPolicy>::weights_line_search()
 {
    const double current_cost = cost();
    Gamma_old = Backend::copy_matrix(Gamma);
@@ -288,13 +289,13 @@ L2_SPA<Backend, RegularizationPolicy>::affiliations_line_search()
 }
 
 template <class Backend, class RegularizationPolicy>
-int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
+int L2_SPA<Backend, RegularizationPolicy>::update_weights()
 {
    backends::gemm(1, S, S, 0, StS,
                   backends::Op_flag::Transpose, backends::Op_flag::None);
 
    // update gradient of cost function
-   update_affiliations_gradient();
+   update_weights_gradient();
 
    // compute next increment
    backends::geam(1, Gamma, -alpha_Gamma, grad_Gamma, incr_Gamma);
@@ -302,14 +303,14 @@ int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
    backends::geam(1, incr_Gamma, -1, Gamma, incr_Gamma);
 
    // line search for single step of projected gradient descent
-   const auto line_search_result = affiliations_line_search();
+   const auto line_search_result = weights_line_search();
    int error = std::get<0>(line_search_result);
    const double lambda = std::get<1>(line_search_result);
 
    // update alpha for next iteration
    delta_grad_Gamma = Backend::copy_matrix(grad_Gamma);
 
-   update_affiliations_gradient();
+   update_weights_gradient();
 
    backends::geam(1, grad_Gamma, -1, delta_grad_Gamma, delta_grad_Gamma);
 

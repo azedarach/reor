@@ -54,7 +54,7 @@ Factorization_delta_cost_iterator<Factorization>::iterate(
       }
 
       if (update_weights) {
-         model.update_affiliations();
+         model.update_weights();
 
          new_cost = model.cost();
          if (new_cost > old_cost && require_monotonic_cost_decrease) {
@@ -116,7 +116,7 @@ VPFactorization_delta_cost_iterator<Factorization>::iterate(
       }
 
       if (update_weights) {
-         model.update_affiliations();
+         model.update_weights();
 
          new_cost = model.cost();
          if (new_cost > old_cost && require_monotonic_cost_decrease) {
