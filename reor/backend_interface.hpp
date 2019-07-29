@@ -76,6 +76,9 @@ struct solve_square_qr_left_impl {};
 template <class MatrixA, class MatrixB, class Enable = void>
 struct solve_square_qr_right_impl {};
 
+template <class MatrixA, class MatrixB, class Enable = void>
+struct solve_ldlt_impl {};
+
 template <class Vector, class Enable = void>
 struct simplex_project_vector_impl {};
 
@@ -403,6 +406,19 @@ typename detail::solve_square_qr_right_impl<MatrixA, MatrixB>::return_type
 solve_square_qr_right(const MatrixA& A, MatrixB& B, Op_flag opA = Op_flag::None)
 {
    return detail::solve_square_qr_right_impl<MatrixA, MatrixB>::eval(A, B, opA);
+}
+
+/**
+ * @brief Solves a linear system using LDLT decomposition
+ *
+ * @tparam MatrixA the type of the coefficients matrix
+ * @tparam MatrixB the type of the solution matrix
+ */
+template <class MatrixA, class MatrixB>
+typename detail::solve_ldlt_impl<MatrixA, MatrixB>::return_type
+solve_ldlt(const MatrixA& A, MatrixB& B)
+{
+   return detail::solve_ldlt_impl<MatrixA, MatrixB>::eval(A, B);
 }
 
 /**

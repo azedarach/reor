@@ -522,6 +522,20 @@ struct solve_square_qr_right_impl<
       }
 };
 
+template <class MatrixA, class MatrixB>
+struct solve_ldlt_impl<
+   MatrixA, MatrixB,
+   typename std::enable_if<is_eigen_matrix<MatrixA>::value &&
+                           is_eigen_matrix<MatrixB>::value>::type> {
+   using return_type = int;
+
+   static return_type eval(const MatrixA& A, MatrixB& B)
+      {
+         B = A.ldlt().solve(B);
+         return 0;
+      }
+};
+
 template <class Vector>
 struct simplex_project_vector_impl<
    Vector,
