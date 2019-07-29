@@ -10,6 +10,7 @@
 #include "l2_spa_regularizations.hpp"
 #include "numerics_helpers.hpp"
 #include "spg.hpp"
+#include "trivial_matrix_factorization_regularizer.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -21,7 +22,7 @@ namespace reor {
 
 template <
    class Backend,
-   class RegularizationPolicy = L2_SPA_No_regularization
+   class RegularizationPolicy = Trivial_matrix_factorization_regularizer
    >
 class L2_SPA : public RegularizationPolicy {
 public:

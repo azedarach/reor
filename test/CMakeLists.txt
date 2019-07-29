@@ -1,7 +1,8 @@
 set(REOR_TEST_SOURCES
     catch_main.cpp
     test_l2_spa.cpp
-    test_l2_spa_regularizations.cpp)
+    test_l2_spa_regularizations.cpp
+    test_trivial_matrix_factorization_regularizer.cpp)
 
 if(TARGET Eigen3::Eigen)
     set(REOR_TEST_SOURCES

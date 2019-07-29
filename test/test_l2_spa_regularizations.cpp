@@ -12,65 +12,6 @@ using namespace reor;
 
 #include <Eigen/Core>
 
-TEST_CASE("Test trivial regularization with Eigen matrices",
-          "[l2_spa][l2_spa_regularizations][eigen_backend]")
-{
-   SECTION("Returns zero for arbitrary matrices")
-   {
-      const int n_features = 10;
-      const int n_samples = 100;
-      const int n_components = 4;
-
-      Eigen::MatrixXd X(Eigen::MatrixXd::Random(n_features, n_samples));
-      Eigen::MatrixXd S(Eigen::MatrixXd::Random(n_features, n_components));
-      Eigen::MatrixXd Gamma(Eigen::MatrixXd::Random(n_components, n_samples));
-
-      const double penalty = L2_SPA_No_regularization::penalty(X, S, Gamma);
-      const double expected_penalty = 0;
-
-      CHECK(is_equal(penalty, expected_penalty));
-   }
-
-   SECTION("Returns zero dictionary jacobian for arbitrary matrices")
-   {
-      const int n_features = 41;
-      const int n_samples = 200;
-      const int n_components = 10;
-
-      Eigen::MatrixXd X(Eigen::MatrixXd::Random(n_features, n_samples));
-      Eigen::MatrixXd S(Eigen::MatrixXd::Random(n_features, n_components));
-      Eigen::MatrixXd Gamma(Eigen::MatrixXd::Random(n_components, n_samples));
-      Eigen::MatrixXd jac_S(Eigen::MatrixXd::Random(n_features, n_components));
-
-      REQUIRE(!is_equal(jac_S,
-                        Eigen::MatrixXd::Zero(n_features, n_components)));
-
-      L2_SPA_No_regularization::dictionary_gradient(X, S, Gamma, jac_S);
-
-      CHECK(is_equal(jac_S, Eigen::MatrixXd::Zero(n_features, n_components)));
-   }
-
-   SECTION("Returns zero affiliations jacobian for arbitrary matrices")
-   {
-      const int n_features = 32;
-      const int n_samples = 700;
-      const int n_components = 17;
-
-      Eigen::MatrixXd X(Eigen::MatrixXd::Random(n_features, n_samples));
-      Eigen::MatrixXd S(Eigen::MatrixXd::Random(n_features, n_components));
-      Eigen::MatrixXd Gamma(Eigen::MatrixXd::Random(n_components, n_samples));
-      Eigen::MatrixXd jac_Gamma(
-         Eigen::MatrixXd::Random(n_components, n_samples));
-
-      REQUIRE(!is_equal(jac_Gamma,
-                        Eigen::MatrixXd::Zero(n_components, n_samples)));
-
-      L2_SPA_No_regularization::affiliations_gradient(X, S, Gamma, jac_Gamma);
-
-      CHECK(is_equal(jac_Gamma,
-                     Eigen::MatrixXd::Zero(n_components, n_samples)));
-   }
-}
 
 namespace {
 
