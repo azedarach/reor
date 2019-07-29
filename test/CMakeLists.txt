@@ -1,6 +1,7 @@
 set(REOR_TEST_SOURCES
   catch_main.cpp
   test_gpnh_regularizer.cpp
+  test_gpnh_dar_regularizer.cpp
   test_l2_spa.cpp
   test_trivial_matrix_factorization_regularizer.cpp)
 
