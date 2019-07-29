@@ -205,9 +205,6 @@ L2_SPA<Backend, RegularizationPolicy>::dictionary_line_search()
 template <class Backend, class RegularizationPolicy>
 int L2_SPA<Backend, RegularizationPolicy>::update_dictionary()
 {
-   using std::min;
-   using std::max;
-
    backends::gemm(1, Gamma, Gamma, 0, GGt,
                   backends::Op_flag::None, backends::Op_flag::Transpose);
 
@@ -297,9 +294,6 @@ L2_SPA<Backend, RegularizationPolicy>::affiliations_line_search()
 template <class Backend, class RegularizationPolicy>
 int L2_SPA<Backend, RegularizationPolicy>::update_affiliations()
 {
-   using std::min;
-   using std::max;
-
    backends::gemm(1, S, S, 0, StS,
                   backends::Op_flag::Transpose, backends::Op_flag::None);
 
