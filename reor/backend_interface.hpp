@@ -59,6 +59,9 @@ template <class Scalar1, class MatrixA, class MatrixB,
           class Enable = void>
 struct sum_hadamard_op_impl {};
 
+template <class Matrix, class Enable = void>
+struct matrix_fro_norm_impl {};
+
 template <class MatrixC, class MatrixA, class MatrixB, class ResidualMatrix,
           class Enable = void>
 struct matrix_residual_impl {};
@@ -317,6 +320,18 @@ sum_hadamard_op(Scalar1 alpha, const MatrixA& A, const MatrixB& B,
 {
    return detail::sum_hadamard_op_impl<Scalar1, MatrixA, MatrixB>::eval(
       alpha, A, B, opA, opB);
+}
+
+/**
+ * @brief calculates the Frobenius norm of a matrix
+ *
+ * @tparam Matrix type of the matrix
+ */
+template <class Matrix>
+typename detail::matrix_fro_norm_impl<Matrix>::value_type
+matrix_fro_norm(const Matrix& A)
+{
+   return detail::matrix_fro_norm_impl<Matrix>::eval(A);
 }
 
 /**

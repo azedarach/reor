@@ -409,6 +409,18 @@ struct sum_hadamard_op_impl<
       }
 };
 
+template <class Matrix>
+struct matrix_fro_norm_impl<
+   Matrix,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+   using value_type = typename matrix_traits<Matrix>::real_element_type;
+
+   static value_type eval(const Matrix& A)
+      {
+         return A.norm();
+      }
+};
+
 template <class MatrixC, class MatrixA, class MatrixB, class ResidualMatrix>
 struct matrix_residual_impl<
    MatrixC, MatrixA, MatrixB, ResidualMatrix,
