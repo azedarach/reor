@@ -90,25 +90,25 @@ struct cols_impl<
       }
 };
 
-template <class Index, class Scalar, class Matrix>
+template <class RowIndex, class ColIndex, class Scalar, class Matrix>
 struct set_matrix_element_impl<
-   Index, Scalar, Matrix,
+   RowIndex, ColIndex, Scalar, Matrix,
    typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
 
-   static void set(Index row, Index col, Scalar s, Matrix& A)
+   static void set(RowIndex row, ColIndex col, Scalar s, Matrix& A)
       {
          A(row, col) = s;
       }
 };
 
-template <class Index, class Matrix>
+template <class RowIndex, class ColIndex, class Matrix>
 struct get_matrix_element_impl<
-   Index, Matrix,
+   RowIndex, ColIndex, Matrix,
    typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
 
    using return_type = typename Matrix::Scalar;
 
-   static return_type get(Index row, Index col, const Matrix& A)
+   static return_type get(RowIndex row, ColIndex col, const Matrix& A)
       {
          return A(row, col);
       }

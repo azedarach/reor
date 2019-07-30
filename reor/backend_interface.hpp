@@ -18,10 +18,11 @@ struct cols_impl {};
 template <class Matrix, class Enable = void>
 struct rows_impl {};
 
-template <class Index, class Scalar, class Matrix, class Enable = void>
+template <class RowIndex, class ColIndex, class Scalar, class Matrix,
+          class Enable = void>
 struct set_matrix_element_impl {};
 
-template <class Index, class Matrix, class Enable = void>
+template <class RowIndex, class ColIndex, class Matrix, class Enable = void>
 struct get_matrix_element_impl {};
 
 template <class Scalar, class Matrix, class Enable = void>
@@ -119,27 +120,31 @@ std::size_t rows(const Matrix& m)
 /**
  * @brief Sets a single matrix element to the given value
  *
- * @tparam Index the type of the index
+ * @tparam RowIndex the type of the row index
+ * @tparam ColIndex the type of the column index
  * @tparam Scalar the type of the scalar
  * @tparam Matrix the type of the matrix
  */
-template <class Index, class Scalar, class Matrix>
-void set_matrix_element(Index row, Index col, Scalar s, Matrix& A)
+template <class RowIndex, class ColIndex, class Scalar, class Matrix>
+void set_matrix_element(RowIndex row, ColIndex col, Scalar s, Matrix& A)
 {
-   detail::set_matrix_element_impl<Index, Scalar, Matrix>::set(row, col, s, A);
+   detail::set_matrix_element_impl<RowIndex, ColIndex, Scalar, Matrix>::set(
+      row, col, s, A);
 }
 
 /**
  * @brief Gets a single matrix element
  *
- * @tparam Index the type of the index
+ * @tparam RowIndex the type of the row index
+ * @tparam ColIndex the type of the column index
  * @tparam Matrix the type of the matrix
  */
-template <class Index, class Matrix>
+template <class RowIndex, class ColIndex, class Matrix>
 typename matrix_traits<Matrix>::element_type
-get_matrix_element(Index row, Index col, const Matrix& A)
+get_matrix_element(RowIndex row, ColIndex col, const Matrix& A)
 {
-   return detail::get_matrix_element_impl<Index, Matrix>::get(row, col, A);
+   return detail::get_matrix_element_impl<RowIndex, ColIndex, Matrix>::get(
+      row, col, A);
 }
 
 /**
