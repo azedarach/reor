@@ -152,7 +152,7 @@ void GPNH_DAR_regularizer<Backend>::initialize(
    const int max_lag = get_maximum_lag();
 
    parameters = Backend::create_constant_matrix(
-      n_lags, n_components, 1);
+      n_components, n_lags, 1);
    Z = Backend::create_matrix(n_lags, n_samples - max_lag);
 }
 
@@ -163,16 +163,16 @@ void GPNH_DAR_regularizer<Backend>::set_parameter_values(
 {
    const std::size_t n_lags = lag_set.size();
 
-   if (backends::rows(parameters_) != n_lags) {
+   if (backends::cols(parameters_) != n_lags) {
       throw std::runtime_error(
-         "number of rows does not match number of lags");
+         "new number of columns does not match old number of columns");
    }
 
-   const std::size_t n_components = backends::cols(parameters);
+   const std::size_t n_components = backends::rows(parameters);
 
-   if (backends::cols(parameters_) != n_components) {
+   if (backends::rows(parameters_) != n_components) {
       throw std::runtime_error(
-         "number of columns does not match number of components");
+         "new number of rows does not match old number of rows");
    }
 
    parameters = Backend::copy_matrix(parameters_);
@@ -230,7 +230,7 @@ double GPNH_DAR_regularizer<Backend>::weights_penalty(
       for (std::size_t i = 0; i < n_components; ++i) {
          double r = backends::get_matrix_element(i, t, Gamma);
          for (std::size_t l = 0; l < n_lags; ++l) {
-            r -= backends::get_matrix_element(l, i, parameters) *
+            r -= backends::get_matrix_element(i, l, parameters) *
                backends::get_matrix_element(i, t - lag_set[l], Gamma);
          }
          tr_penalty += 0.5 * r * r;
@@ -249,7 +249,7 @@ double GPNH_DAR_regularizer<Backend>::parameters_penalty() const
    const double parameters_norm = backends::matrix_fro_norm(parameters);
    const double norm_penalty = parameters_norm * parameters_norm;
 
-   return epsilon_W * norm_penalty;
+   return 0.5 * epsilon_W * norm_penalty;
 }
 
 template <class Backend>
@@ -318,11 +318,13 @@ void GPNH_DAR_regularizer<Backend>::weights_gradient(
          }
 
          for (std::size_t l = 0; l < n_lags; ++l) {
-            if (t + lag_set[l] < n_samples) {
-               double r = backends::get_matrix_element(i, t + lag_set[l], Gamma);
+            const std::size_t tp = t + lag_set[l];
+            if (tp >= max_lag && tp < n_samples) {
+               double r = backends::get_matrix_element(i, tp, Gamma);
+
                for (std::size_t lp = 0; lp < n_lags; ++lp) {
                   r -= backends::get_matrix_element(i, lp, parameters)
-                     * backends::get_matrix_element(i, t + lag_set[l] - lag_set[lp],
+                     * backends::get_matrix_element(i, tp - lag_set[lp],
                                                     Gamma);
                }
                value -= epsilon_Gamma * backends::get_matrix_element(
@@ -346,36 +348,39 @@ int GPNH_DAR_regularizer<Backend>::update_parameters(
    const std::size_t n_lags = lag_set.size();
    const std::size_t max_lag = get_maximum_lag();
 
-   Matrix ZZt = Backend::create_diagonal_matrix(
-      n_lags, epsilon_W / epsilon_Gamma);
-   Matrix ZGt = Backend::create_matrix(n_lags, 1);
-
    int status = 0;
    for (std::size_t i = 0; i < n_components; ++i) {
 
-      for (std::size_t l = 0; l < n_lags; ++l) {
-         double rhs_elem = 0;
-         for (std::size_t t = max_lag; t < n_samples; ++t) {
+      Matrix ZZt = Backend::create_diagonal_matrix(n_lags, epsilon_W);
+      Matrix y = Backend::create_matrix(n_samples - max_lag, 1);
+      Matrix b = Backend::create_matrix(n_lags, 1);
+
+      for (std::size_t t = max_lag; t < n_samples; ++t) {
+         const auto gamma_it = backends::get_matrix_element(i, t, Gamma);
+
+         backends::set_matrix_element(t - max_lag, 0, gamma_it, y);
+
+         for (std::size_t l = 0; l < n_lags; ++l) {
             const auto zlt =
                backends::get_matrix_element(i, t - lag_set[l], Gamma);
+
             backends::set_matrix_element(
-               l, t, zlt, Z);
-            rhs_elem += zlt * backends::get_matrix_element(i, t, Gamma);
+               l, t - max_lag, zlt, Z);
          }
-         backends::set_matrix_element(l, 1, rhs_elem, ZGt);
       }
 
-      backends::gemm(1, Z, Z, 1, ZZt, backends::Op_flag::None,
-                     backends::Op_flag::Transpose);
+      backends::gemm(epsilon_Gamma, Z, Z, 1, ZZt,
+                     backends::Op_flag::None, backends::Op_flag::Transpose);
+      backends::gemm(epsilon_Gamma, Z, y, 0, b);
 
-      const auto error = backends::solve_ldlt(ZZt, ZGt);
+      const auto error = backends::solve_ldlt(ZZt, b);
       if (error) {
          status = error;
       }
 
       for (std::size_t l = 0; l < n_lags; ++l) {
-         const auto w = backends::get_matrix_element(l, 1, ZGt);
-         backends::set_matrix_element(l, i, w, parameters);
+         const auto w = backends::get_matrix_element(l, 0, b);
+         backends::set_matrix_element(i, l, w, parameters);
       }
    }
 
