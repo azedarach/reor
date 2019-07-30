@@ -619,7 +619,7 @@ int main(int argc, const char* argv[])
       }
 
       if (args.n_init < 1) {
-         std::cerr << "Error: number of initialization must be at least one."
+         std::cerr << "Error: number of initializations must be at least one."
                    << std::endl;
          return 1;
       }
