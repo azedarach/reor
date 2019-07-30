@@ -126,7 +126,8 @@ VPFactorization_delta_cost_iterator<Factorization>::iterate(
       }
 
       if (update_parameters) {
-         model.update_parameters();
+         model.update_parameters(model.get_data(), model.get_dictionary(),
+                                 model.get_weights());
 
          new_cost = model.cost();
          if (new_cost > old_cost && require_monotonic_cost_decrease) {
