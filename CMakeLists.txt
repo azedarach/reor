@@ -59,6 +59,7 @@ export(TARGETS reor
 
 export(PACKAGE REOR)
 
+add_subdirectory(bindings EXCLUDE_FROM_ALL)
 add_subdirectory(examples EXCLUDE_FROM_ALL)
 
 if(ENABLE_TESTING)
