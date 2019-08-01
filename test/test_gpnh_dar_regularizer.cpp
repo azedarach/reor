@@ -510,7 +510,6 @@ TEST_CASE("Test GPNH-DAR regularization with Eigen matrices",
          }
       }
 
-      std::cout << "Gamma = " << Gamma << '\n';
       GPNH_DAR_eigen_host host_instance;
       host_instance.initialize(lag_set, Gamma);
       host_instance.set_parameter_values(parameters);
@@ -527,9 +526,6 @@ TEST_CASE("Test GPNH-DAR regularization with Eigen matrices",
 
       host_instance.update_parameters(X, S, Gamma);
       const Eigen::MatrixXd updated_parameters(host_instance.get_parameters());
-
-      std::cout << "parameters = " << parameters << '\n';
-      std::cout << "updated = " << updated_parameters << '\n';
 
       CHECK(is_equal(parameters, updated_parameters, tolerance));
    }
