@@ -123,19 +123,21 @@ def _iterate_l2_spa_gpnh_eigen(data, dictionary, weights,
     for n_iter in range(max_iterations):
         old_cost = new_cost
 
-        solver.update_dictionary()
+        if update_dictionary:
+            solver.update_dictionary()
 
-        new_cost = solver.cost()
-        if (new_cost > old_cost) and require_monotonic_cost_decrease:
-            raise RuntimeError(
-                'factorization cost increased after dictionary update')
+            new_cost = solver.cost()
+            if (new_cost > old_cost) and require_monotonic_cost_decrease:
+                raise RuntimeError(
+                    'factorization cost increased after dictionary update')
 
-        solver.update_weights()
+        if update_weights:
+            solver.update_weights()
 
-        new_cost = solver.cost()
-        if (new_cost > old_cost) and require_monotonic_cost_decrease:
-            raise RuntimeError(
-                'factorization cost increased after weights update')
+            new_cost = solver.cost()
+            if (new_cost > old_cost) and require_monotonic_cost_decrease:
+                raise RuntimeError(
+                    'factorization cost increased after weights update')
 
         cost_delta = new_cost - old_cost
 
@@ -155,7 +157,7 @@ def _iterate_l2_spa_gpnh_eigen(data, dictionary, weights,
 
 
 def l2_spa_gpnh(data, dictionary=None, weights=None,
-                n_components=None, epsilon_states=None,
+                n_components=None, epsilon_states=0,
                 update_dictionary=True, update_weights=True,
                 init=None, tolerance=1e-6,
                 max_iterations=1000,
@@ -274,17 +276,17 @@ def l2_spa_gpnh(data, dictionary=None, weights=None,
 
     if init == 'custom' and update_dictionary and update_weights:
         _check_init_weights(weights, (n_components, n_samples),
-                            '_l2_spa_gpnh (input weights)')
+                            'l2_spa_gpnh (input weights)')
         _check_init_dictionary(dictionary, (n_features, n_components),
-                               '_l2_spa_gpnh (input dictionary)')
+                               'l2_spa_gpnh (input dictionary)')
     elif not update_dictionary and update_weights:
         _check_init_dictionary(dictionary, (n_features, n_components),
-                               '_l2_spa_gpnh (input dictionary)')
+                               'l2_spa_gpnh (input dictionary)')
         weights = _initialize_l2_spa_weights(X, n_components, init=init,
                                              random_state=random_state)
     elif update_dictionary and not update_weights:
         _check_init_weights(weights, (n_components, n_samples),
-                            '_l2_spa_gpnh (input weights)')
+                            'l2_spa_gpnh (input weights)')
         dictionary = _initialize_l2_spa_dictionary(
             X, n_components, init=init,
             random_state=random_state)
@@ -348,13 +350,13 @@ class L2SPAGPNH(object):
 
         - 'custom': use custom matrices for dictionary and weights.
 
-    tolerance : float, default : 1e-6
+    tolerance : float, default: 1e-6
         Tolerance of the stopping condition.
 
     max_iterations : integer, default: 1000
         Maximum number of iterations before stopping.
 
-    verbose : integer, default : 0
+    verbose : integer, default: 0
         The verbosity level.
 
     random_state : integer, RandomState, or None
@@ -396,7 +398,7 @@ class L2SPAGPNH(object):
     def __init__(self, n_components, epsilon_states=0, init=None,
                  tolerance=1e-6, max_iterations=1000,
                  verbose=0, random_state=None,
-                 backend="builtin"):
+                 backend='builtin'):
         self.n_components = n_components
         self.epsilon_states = epsilon_states
         self.init = init
@@ -458,7 +460,7 @@ class L2SPAGPNH(object):
         -------
         self
         """
-        self.fit_transform(**kwargs)
+        self.fit_transform(data, **kwargs)
         return self
 
     def transform(self, data):
@@ -476,7 +478,7 @@ class L2SPAGPNH(object):
         """
         check_is_fitted(self, 'n_components_')
 
-        _, weights, n_iter_ = l2_spa_gpnh(
+        _, weights, _ = l2_spa_gpnh(
             data=data,
             dictionary=self.dictionary_,
             n_components=self.n_components_,
@@ -486,6 +488,8 @@ class L2SPAGPNH(object):
             max_iterations=self.max_iterations,
             random_state=self.random_state,
             backend=self.backend)
+
+        return weights
 
     def inverse_transform(self, weights):
         """Transform data back into its original space.

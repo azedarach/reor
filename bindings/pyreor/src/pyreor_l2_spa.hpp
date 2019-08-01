@@ -8,14 +8,6 @@
 
 #include "reor/l2_spa.hpp"
 
-#include <pybind11/pybind11.h>
-
-class BuiltinL2SPAGPNH {
-public:
-   BuiltinL2SPAGPNH();
-   ~BuiltinL2SPAGPNH();
-};
-
 #ifdef HAVE_EIGEN
 #include "pyreor_eigen_l2_spa.hpp"
 #endif

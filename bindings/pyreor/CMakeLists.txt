@@ -12,6 +12,7 @@ if(TARGET Eigen3::Eigen)
 endif()
 
 file(COPY
+  _archetypal_analysis.py
   _random_matrix.py
   _spa.py
   _validation.py
