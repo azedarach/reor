@@ -15,9 +15,10 @@ namespace reor {
 
 namespace detail {
 
-template <class Matrix, class Index, class Scalar>
+template <class Matrix, class NewIndex, class OldIndex, class Scalar>
 void update_distance_sums(
-   const Matrix& D, Index new_index, std::vector<std::pair<Index, Scalar> >& q)
+   const Matrix& D, NewIndex new_index,
+   std::vector<std::pair<OldIndex, Scalar> >& q)
 {
    for (auto& qi : q) {
       const auto dij = backends::get_matrix_element(qi.first, new_index, D);
@@ -65,7 +66,8 @@ furthest_sum_impl<DissimilarityMatrix>::eval(
       return std::vector<Index>();
    }
 
-   const std::size_t n_samples = backends::cols(D);
+   const Index n_samples = backends::cols(D);
+   const Index n_excluded = exclude.size();
 
    if (start_index >= n_samples) {
       throw std::runtime_error(
@@ -79,9 +81,15 @@ furthest_sum_impl<DissimilarityMatrix>::eval(
       }
    }
 
+   if (n_excluded < n_samples &&
+       static_cast<Index>(n_components) > n_samples - n_excluded) {
+      throw std::runtime_error(
+         "too few points to select requested number of components");
+   }
+
    std::vector<Index> selected(n_components, start_index);
 
-   const auto is_valid_candidate = [&selected, &exclude](std::size_t idx) {
+   const auto is_valid_candidate = [&selected, &exclude](Index idx) {
       bool is_valid = true;
 
       for (auto i : selected) {
@@ -101,11 +109,9 @@ furthest_sum_impl<DissimilarityMatrix>::eval(
       return is_valid;
    };
 
-
-   const auto n_excluded = exclude.size();
-   std::vector<std::pair<std::size_t, double> > q(n_samples - n_excluded - 1);
+   std::vector<std::pair<Index, Scalar> > q(n_samples - n_excluded - 1);
    std::size_t pos = 0;
-   for (std::size_t i = 0; i < n_samples; ++i) {
+   for (Index i = 0; i < n_samples; ++i) {
       if (is_valid_candidate(i)) {
          const auto dij = backends::get_matrix_element(i, start_index, D);
          q[pos] = std::make_pair(i, dij);
@@ -121,12 +127,14 @@ furthest_sum_impl<DissimilarityMatrix>::eval(
    if (extra_steps > 0) {
       for (std::size_t i = 0; i < extra_steps; ++i) {
          const std::size_t update_index = i % n_components;
-         const std::size_t index_to_replace = selected[update_index];
+         const Index index_to_replace = selected[update_index];
+
          for (auto& qi : q) {
             const auto dij = backends::get_matrix_element(
                qi.first, index_to_replace, D);
             qi.second -= dij;
          }
+
          // add index being replacing back to list of candidates to
          // consider
          double qi = 0;
@@ -149,11 +157,14 @@ furthest_sum_impl<DissimilarityMatrix>::eval(
 
 } // namespace detail
 
-template <class DissimilarityMatrix>
-std::vector<std::size_t> furthest_sum(
+template <class DissimilarityMatrix, class StartIndex,
+          class ExcludeIndex = StartIndex>
+std::vector<
+   typename backends::matrix_traits<DissimilarityMatrix>::index_type>
+furthest_sum(
    const DissimilarityMatrix& D, std::size_t n_components,
-   std::size_t start_index,
-   const std::vector<std::size_t>& exclude = std::vector<std::size_t>(),
+   StartIndex start_index,
+   const std::vector<ExcludeIndex>& exclude = std::vector<ExcludeIndex>(),
    std::size_t extra_steps = 1)
 {
    if (backends::rows(D) != backends::cols(D)) {
