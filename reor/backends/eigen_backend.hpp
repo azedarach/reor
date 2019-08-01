@@ -125,6 +125,102 @@ struct add_constant_impl<
       }
 };
 
+template <class Matrix>
+struct trace_impl<
+   Matrix,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   using value_type = typename matrix_traits<Matrix>::element_type;
+
+   static value_type eval(const Matrix& A)
+      {
+         return A.trace();
+      }
+};
+
+template <class Matrix, class Scalar>
+struct threshold_min_impl<
+   Matrix, Scalar,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   static void eval(Matrix& A, Scalar threshold)
+      {
+         const auto n_rows = A.rows();
+         const auto n_cols = A.cols();
+         A = (A.array() < threshold).select(
+            Eigen::MatrixXd::Constant(n_rows, n_cols, threshold),
+            A);
+      }
+};
+
+template <class Matrix, class Scalar>
+struct threshold_max_impl<
+   Matrix, Scalar,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   static void eval(Matrix& A, Scalar threshold)
+      {
+         const auto n_rows = A.rows();
+         const auto n_cols = A.cols();
+         A = (A.array() > threshold).select(
+            Eigen::MatrixXd::Constant(n_rows, n_cols, threshold),
+            A);
+      }
+};
+
+template <class Matrix, class Exponent, class Offset>
+struct normalize_columns_by_lpnorm_impl<
+   Matrix, Exponent, Offset,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   using Scalar = typename Matrix::Scalar;
+
+      static void eval(Matrix& A, Exponent p, Offset eps)
+      {
+         using std::pow;
+
+         if (p == 2) {
+            A.colwise().normalize();
+         } else {
+            const auto n_rows = A.rows();
+
+            const Eigen::RowVectorXd norms =
+               A.unaryExpr([p](Scalar x) { return pow(x, p); })
+               .colwise()
+               .sum()
+               .unaryExpr([p, eps](Scalar x) { return pow(x, 1. / p) + eps; });
+
+            A = (A.array() / norms.replicate(n_rows, 1).array()).matrix();
+         }
+      }
+};
+
+template <class Matrix, class Exponent, class Offset>
+struct normalize_rows_by_lpnorm_impl<
+   Matrix, Exponent, Offset,
+   typename std::enable_if<is_eigen_matrix<Matrix>::value>::type> {
+
+   using Scalar = typename Matrix::Scalar;
+
+      static void eval(Matrix& A, Exponent p, Offset eps)
+      {
+         using std::pow;
+         if (p == 2) {
+            A.rowwise().normalize();
+         } else {
+            const auto n_cols = A.cols();
+
+            const Eigen::VectorXd norms =
+               A.unaryExpr([p](Scalar x) { return pow(x, p); })
+               .rowwise()
+               .sum()
+               .unaryExpr([p, eps](Scalar x) { return pow(x, 1. / p) + eps; });
+
+            A = (A.array() / norms.replicate(1, n_cols).array()).matrix();
+         }
+      }
+};
+
 template <class Scalar1, class MatrixA, class Scalar2, class MatrixB,
           class MatrixC>
 struct geam_impl<

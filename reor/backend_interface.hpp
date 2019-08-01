@@ -28,6 +28,21 @@ struct get_matrix_element_impl {};
 template <class Scalar, class Matrix, class Enable = void>
 struct add_constant_impl {};
 
+template <class Matrix, class Enable = void>
+struct trace_impl {};
+
+template <class Matrix, class Scalar, class Enable = void>
+struct threshold_min_impl {};
+
+template <class Matrix, class Scalar, class Enable = void>
+struct threshold_max_impl {};
+
+template <class Matrix, class Exponent, class Offset, class Enable = void>
+struct normalize_columns_by_lpnorm_impl {};
+
+template <class Matrix, class Exponent, class Offset, class Enable = void>
+struct normalize_rows_by_lpnorm_impl {};
+
 template <class Scalar1, class MatrixA, class Scalar2, class MatrixB,
           class MatrixC, class Enable = void>
 struct geam_impl {};
@@ -157,6 +172,76 @@ template <class Scalar, class Matrix>
 void add_constant(Scalar s, Matrix& A)
 {
    detail::add_constant_impl<Scalar, Matrix>::eval(s, A);
+}
+
+/**
+ * @brief Computes the trace of a matrix
+ *
+ * @tparam Matrix the type of the matrix
+ */
+template <class Matrix>
+typename detail::trace_impl<Matrix>::value_type
+trace(const Matrix& A)
+{
+   return detail::trace_impl<Matrix>::eval(A);
+}
+
+/**
+ * @brief Replaces all elements below a given threshold with threshold value
+ *
+ * @tparam Matrix the type of the matrix
+ * @tparam Scalar the type of the scalar
+ */
+template <class Matrix, class Scalar>
+void threshold_min(Matrix& A, Scalar threshold)
+{
+   detail::threshold_min_impl<Matrix, Scalar>::eval(A, threshold);
+}
+
+/**
+ * @brief Replaces all elements above a given threshold with threshold value
+ *
+ * @tparam Matrix the type of the matrix
+ * @tparam Scalar the type of the scalar
+ */
+template <class Matrix, class Scalar>
+void threshold_max(Matrix& A, Scalar threshold)
+{
+   detail::threshold_max_impl<Matrix, Scalar>::eval(A, threshold);
+}
+
+/**
+ * @brief Normalize the columns of a matrix by their Lp norm
+ *
+ * @tparam Matrix the type of the matrix
+ * @tparam Exponent the type of the exponent
+ */
+template <class Matrix, class Exponent>
+void normalize_columns_by_lpnorm(
+   Matrix& A, Exponent p,
+   typename matrix_traits<Matrix>::real_element_type eps
+   = std::numeric_limits<
+   typename matrix_traits<Matrix>::real_element_type>::min())
+{
+   detail::normalize_columns_by_lpnorm_impl<
+      Matrix, Exponent, decltype(eps)>::eval(A, p, eps);
+}
+
+/**
+ * @brief Normalize the rows of a matrix by their Lp norm
+ *
+ * @tparam Matrix the type of the matrix
+ * @tparam Exponent the type of the exponent
+ */
+template <class Matrix, class Exponent>
+void normalize_rows_by_lpnorm(
+   Matrix& A, Exponent p,
+   typename matrix_traits<Matrix>::real_element_type eps
+   = std::numeric_limits<
+   typename matrix_traits<Matrix>::real_element_type>::min())
+{
+   detail::normalize_rows_by_lpnorm_impl<
+      Matrix, Exponent, decltype(eps)>::eval(A, p, eps);
 }
 
 /**
