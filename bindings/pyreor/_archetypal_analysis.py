@@ -74,11 +74,14 @@ def _initialize_kernel_aa_dictionary_furthest_sum(
     if start_index is None:
         start_index = rng.randint(n_samples)
 
+    if exclude is None:
+        exclude = np.array([], dtype='i8')
+
     kernel_diag = np.diag(kernel)
     dissimilarities = np.sqrt(
-        np.tile(kernel_diag, n_samples, 1) -
+        np.tile(kernel_diag, (n_samples, 1)) -
         2 * kernel +
-        np.tile(kernel_diag[:, np.newaxis], 1, n_samples))
+        np.tile(kernel_diag[:, np.newaxis], (1, n_samples)))
 
     if backend == 'eigen':
         selected = pyreor_ext.furthest_sum_eigen(
@@ -169,13 +172,16 @@ def _iterate_kernel_aa_eigen(kernel, dictionary, weights,
     _check_backend('eigen', '_iterate_kernel_aa_eigen')
 
     if verbose:
-        print("*** Kernel AA: n_components = {:d} (backend = '%s') ***".format(
+        print("*** Kernel AA: n_components = {:d} (backend = '{}') ***".format(
             weights.shape[0], 'eigen'))
-        print('{:<12s} | {:<12s} | {:<12s} | {:<12s}'.format(
+        print('{:<12s} | {:<13s} | {:<13s} | {:<12s}'.format(
             'Iteration', 'Cost', 'Cost delta', 'Time'))
         print(60 * '-')
 
     solver = pyreor_ext.EigenKernelAA(kernel, dictionary, weights, delta)
+
+    old_cost = solver.cost()
+    new_cost = old_cost
 
     for n_iter in range(max_iterations):
         start_time = time.perf_counter()
@@ -184,12 +190,14 @@ def _iterate_kernel_aa_eigen(kernel, dictionary, weights,
 
         if update_dictionary:
             solver.update_dictionary()
+            new_cost = solver.cost()
             if (new_cost > old_cost) and require_monotonic_cost_decrease:
                 raise RuntimeError(
                     'factorization cost increased after dictionary update')
 
         if update_weights:
             solver.update_weights()
+            new_cost = solver.cost()
             if (new_cost > old_cost) and require_monotonic_cost_decrease:
                 raise RuntimeError(
                     'factorization cost increased after weights update')
@@ -199,7 +207,7 @@ def _iterate_kernel_aa_eigen(kernel, dictionary, weights,
         end_time = time.perf_counter()
 
         if verbose:
-            print('{:12d} | {:12.9e} | {:12.9e} | {:12.9e}'.format(
+            print('{:12d} | {: 12.6e} | {: 12.6e} | {: 12.6e}'.format(
                 n_iter + 1, new_cost, cost_delta, end_time - start_time))
 
         if abs(cost_delta) < tolerance:

@@ -45,7 +45,12 @@ PYBIND11_MODULE(pyreor_ext, m) {
       .def("update_dictionary", &EigenL2SPAGPNH::update_dictionary)
       .def("update_weights", &EigenL2SPAGPNH::update_weights);
 
-   m.def("furthest_sum_eigen", &furthest_sum_eigen);
+   m.def("furthest_sum_eigen", &furthest_sum_eigen,
+         py::arg("dissimilarities"),
+         py::arg("n_components"),
+         py::arg("starting_index"),
+         py::arg("exclude") = std::vector<Eigen::Index>(),
+         py::arg("extra_steps") = 10);
 
    py::class_<EigenKernelAA>(m, "EigenKernelAA")
       .def(py::init<
