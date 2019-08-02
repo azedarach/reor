@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import numbers
+import time
 import warnings
 
 import numpy as np
@@ -113,19 +114,26 @@ def _iterate_l2_spa_gpnh_eigen(data, dictionary, weights,
                                require_monotonic_cost_decrease=True):
     _check_backend('eigen', '_iterate_l2_spa_gpnh_eigen')
 
+    if verbose:
+        print("*** l2-SPA: n_components = {:d} (backend = '{}') ***".format(
+            weights.shape[0], 'eigen'))
+        print('{:<12s} | {:<13s} | {:<13s} | {:<12s}'.format(
+            'Iteration', 'Cost', 'Cost delta', 'Time'))
+        print(60 * '-')
+
     solver = pyreor_ext.EigenL2SPAGPNH(data, dictionary, weights)
     solver.epsilon_states = epsilon_states
 
     old_cost = solver.cost()
     new_cost = old_cost
-    initial_cost = old_cost
 
     for n_iter in range(max_iterations):
+        start_time = time.perf_counter()
+
         old_cost = new_cost
 
         if update_dictionary:
             solver.update_dictionary()
-
             new_cost = solver.cost()
             if (new_cost > old_cost) and require_monotonic_cost_decrease:
                 raise RuntimeError(
@@ -133,7 +141,6 @@ def _iterate_l2_spa_gpnh_eigen(data, dictionary, weights,
 
         if update_weights:
             solver.update_weights()
-
             new_cost = solver.cost()
             if (new_cost > old_cost) and require_monotonic_cost_decrease:
                 raise RuntimeError(
@@ -141,12 +148,11 @@ def _iterate_l2_spa_gpnh_eigen(data, dictionary, weights,
 
         cost_delta = new_cost - old_cost
 
+        end_time = time.perf_counter()
+
         if verbose:
-            print('Iteration %d:' % (n_iter + 1))
-            print('-----------------')
-            print('Cost function = %.5e' % new_cost)
-            print('Current cost delta = %.5e' % cost_delta)
-            print('Total cost ratio = %.5e' % (new_cost / initial_cost))
+            print('{:12d} | {: 12.6e} | {: 12.6e} | {: 12.6e}'.format(
+                n_iter + 1, new_cost, cost_delta, end_time - start_time))
 
         if abs(cost_delta) < tolerance:
             if verbose:
