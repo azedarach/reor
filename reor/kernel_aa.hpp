@@ -14,8 +14,6 @@
 #include <stdexcept>
 #include <tuple>
 
-#include <iostream>
-
 namespace reor {
 
 template <class Backend>
@@ -57,6 +55,7 @@ private:
 
    Matrix SSt{};
    Matrix KC{};
+   Matrix SKC{};
    Matrix CtKC{};
 
    Matrix C_old{};
@@ -67,29 +66,28 @@ private:
    Matrix diag_alpha_old{};
    Matrix grad_alpha{};
    Matrix incr_alpha{};
+   Matrix delta_grad_alpha{};
 
    Matrix S_old{};
    Matrix grad_S{};
    Matrix incr_S{};
    Matrix delta_grad_S{};
 
-   double beta{0.5};
-   double sigma{0.01};
-   double alpha_scale_factors{1};
-
    SPG_line_search_parameters<Real> line_search_parameters{};
    double alpha_C{1};
    double alpha_S{1};
+   double alpha_alpha{1};
    std::size_t mem{1};
    std::deque<double> f_C_mem{};
    std::deque<double> f_S_mem{};
+   std::deque<double> f_alpha_mem{};
 
    void update_dictionary_gradient();
    std::tuple<int, double> dictionary_line_search();
    void update_weights_gradient();
    std::tuple<int, double> weights_line_search();
    void update_scale_factors_gradient();
-   int scale_factors_line_search();
+   std::tuple<int, double> scale_factors_line_search();
 };
 
 template <class Backend>
@@ -126,6 +124,7 @@ KernelAA<Backend>::KernelAA(
 
    SSt = Backend::create_matrix(n_components, n_components);
    KC = Backend::create_matrix(n_samples, n_components);
+   SKC = Backend::create_matrix(n_components, n_components);
    CtKC = Backend::create_matrix(n_components, n_components);
 
    C_old = Backend::copy_matrix(C_);
@@ -135,6 +134,7 @@ KernelAA<Backend>::KernelAA(
 
    diag_alpha_old = Backend::copy_matrix(diag_alpha);
    grad_alpha = Backend::create_diagonal_matrix(n_components, 0);
+   delta_grad_alpha = Backend::create_matrix(n_components, n_components);
    incr_alpha = Backend::create_diagonal_matrix(n_components, 0);
 
    S_old = Backend::copy_matrix(S_);
@@ -144,26 +144,7 @@ KernelAA<Backend>::KernelAA(
 
    f_S_mem = std::deque<double>(mem, 0);
    f_C_mem = std::deque<double>(mem, 0);
-}
-
-template <class Backend>
-void KernelAA<Backend>::set_line_search_beta(double b)
-{
-   if (b <= 0 || b >= 1) {
-      throw std::runtime_error(
-         "step-size reduction factor must be between 0 and 1");
-   }
-   beta = b;
-}
-
-template <class Backend>
-void KernelAA<Backend>::set_line_search_sigma(double s)
-{
-   if (s < 0 || s > 1) {
-      throw std::runtime_error(
-         "function decrease factor must be between 0 and 1");
-   }
-   sigma = s;
+   f_alpha_mem = std::deque<double>(mem, 0);
 }
 
 template <class Backend>
@@ -379,60 +360,79 @@ std::tuple<int, double> KernelAA<Backend>::dictionary_line_search()
 template <class Backend>
 void KernelAA<Backend>::update_scale_factors_gradient()
 {
-   const std::size_t n_samples = backends::rows(C);
-   const std::size_t n_components = backends::cols(C);
-   const double normalization = 1.0 / (trace_K * n_samples);
+   const auto n_components = backends::rows(diag_alpha);
+   Matrix grad_alpha_tmp = Backend::create_matrix(n_components, n_components);
 
-   backends::gemm(1, K, C, 1, KC);
+   backends::gemm(1, diag_alpha, CtKC, 0, grad_alpha_tmp,
+                  backends::Op_flag::None, backends::Op_flag::Transpose);
+   backends::gemm(1, SSt, grad_alpha_tmp, 0, grad_alpha_tmp);
 
-   Matrix grad_mat = Backend::create_matrix(n_components, n_components);
-   backends::gemm(1, S, KC, 0, grad_mat);
-
-   if (delta > 0) {
-      backends::gemm(1, KC, diag_alpha, 0, KC);
-   }
-
-   backends::gemm(1, C, KC, 0, CtKC, backends::Op_flag::Transpose);
-   backends::gemm(normalization, CtKC, SSt, -normalization, grad_mat);
+   backends::geam(-2, SKC, 2, grad_alpha_tmp, grad_alpha_tmp,
+                  backends::Op_flag::Transpose);
 
    for (std::size_t i = 0; i < n_components; ++i) {
-      const auto g = backends::get_matrix_element(i, i, grad_mat);
+      const auto g = backends::get_matrix_element(i, i, grad_alpha_tmp);
       backends::set_matrix_element(i, i, g, grad_alpha);
    }
 }
 
 template <class Backend>
-int KernelAA<Backend>::scale_factors_line_search()
+std::tuple<int, double> KernelAA<Backend>::scale_factors_line_search()
 {
-   const double current_cost = cost();
+   Matrix CtKC_tmp = Backend::copy_matrix(CtKC);
+   backends::gemm(1, diag_alpha, CtKC, 0, CtKC_tmp);
+   backends::gemm(1, CtKC_tmp, diag_alpha, 0, CtKC_tmp);
+
+   const double current_cost = trace_K
+      - 2 * backends::trace_gemm_op(1, SKC, diag_alpha)
+      + backends::trace_gemm_op(1, SSt, CtKC_tmp);
+
    diag_alpha_old = Backend::copy_matrix(diag_alpha);
 
-   const double incr_norm = backends::sum_hadamard_op(
-      1, incr_alpha, incr_alpha);
+   f_alpha_mem.pop_front();
+   f_alpha_mem.push_back(current_cost);
 
-   int error = 0;
-   bool finished_searching = false;
-   while (!finished_searching) {
-      backends::geam(1, diag_alpha_old, -alpha_scale_factors,
-                     incr_alpha, diag_alpha);
-
-      backends::threshold_min(diag_alpha, 1 - delta);
-      backends::threshold_max(diag_alpha, 1 + delta);
-
-      const double next_cost = cost();
-      if (next_cost <= current_cost - sigma * alpha_scale_factors * incr_norm) {
-         alpha_scale_factors /= beta;
-         finished_searching = true;
-      } else {
-         alpha_scale_factors *= beta;
-      }
-
-      if (is_zero(alpha_scale_factors)) {
-         finished_searching = true;
+   double f_max = -std::numeric_limits<double>::max();
+   for (std::size_t i = 0; i < mem; ++i) {
+      if (f_alpha_mem[i] > f_max) {
+         f_max = f_alpha_mem[i];
       }
    }
 
-   return error;
+   const double incr_norm = backends::sum_hadamard_op(
+      1, incr_alpha, incr_alpha);
+   double lambda = 1;
+
+   backends::geam(1, diag_alpha_old, 1, incr_alpha, diag_alpha);
+
+   backends::gemm(1, diag_alpha, CtKC, 0, CtKC_tmp);
+   backends::gemm(1, CtKC_tmp, diag_alpha, 0, CtKC_tmp);
+
+   double next_cost = trace_K
+      - 2 * backends::trace_gemm_op(1, SKC, diag_alpha)
+      + backends::trace_gemm_op(1, SSt, CtKC_tmp);
+
+   int error = 0;
+   const double factor = line_search_parameters.gamma * incr_norm;
+   while (next_cost > f_max + factor * lambda) {
+      lambda = line_search_parameters.get_next_step_length(
+         lambda, incr_norm, current_cost, next_cost);
+
+      backends::geam(1, diag_alpha_old, lambda, incr_alpha, diag_alpha);
+
+      backends::gemm(1, diag_alpha, CtKC, 0, CtKC_tmp);
+      backends::gemm(1, CtKC_tmp, diag_alpha, 0, CtKC_tmp);
+
+      next_cost = trace_K
+         - 2 * backends::trace_gemm_op(1, SKC, diag_alpha)
+         + backends::trace_gemm_op(1, SSt, CtKC_tmp);
+
+      if (is_zero(lambda)) {
+         break;
+      }
+   }
+
+   return std::make_tuple(error, lambda);
 }
 
 template <class Backend>
@@ -479,13 +479,35 @@ int KernelAA<Backend>::update_dictionary()
    alpha_C = line_search_parameters.get_next_alpha(beta, sksk);
 
    if (delta > 0) {
+      backends::gemm(1, K, C, 0, KC);
+      backends::gemm(1, S, KC, 0, SKC);
+      backends::gemm(1, C, KC, 0, CtKC,
+                     backends::Op_flag::Transpose);
+
       // update gradient of cost function with respect to scale factors
       update_scale_factors_gradient();
 
-      // compute next increment
-      incr_alpha = Backend::copy_matrix(grad_alpha);
+      backends::geam(1, diag_alpha, -alpha_alpha, grad_alpha, incr_alpha);
+      backends::threshold_min(incr_alpha, 1 - delta);
+      backends::threshold_max(incr_alpha, 1 + delta);
+      backends::geam(1, incr_alpha, -1, diag_alpha, incr_alpha);
 
-      const int scales_error = scale_factors_line_search();
+      const auto line_search_result = scale_factors_line_search();
+      const int scales_error = std::get<0>(line_search_result);
+      const double lambda = std::get<1>(line_search_result);
+
+      delta_grad_alpha = Backend::copy_matrix(grad_alpha);
+
+      update_scale_factors_gradient();
+
+      backends::geam(1, grad_alpha, -1, delta_grad_alpha, delta_grad_alpha);
+
+      const double sksk = backends::sum_hadamard_op(
+         lambda * lambda, incr_alpha, incr_alpha);
+      const double beta = backends::sum_hadamard_op(
+         lambda, incr_alpha, delta_grad_alpha);
+
+      alpha_alpha = line_search_parameters.get_next_alpha(beta, sksk);
 
       error = error > scales_error ? error : scales_error;
    }

@@ -16,27 +16,6 @@ using namespace reor;
 
 #include <Eigen/Core>
 
-TEST_CASE("Test setting parameters with Eigen matrices",
-   "[kernel_aa][eigen_backend]")
-{
-   using Backend = backends::Eigen_backend<double>;
-
-   SECTION("Throws when setting line search parameters less than zero")
-   {
-      const int n_components = 10;
-      const int n_samples = 500;
-
-      const Eigen::MatrixXd K(Eigen::MatrixXd::Random(n_samples, n_samples));
-      const Eigen::MatrixXd C(Eigen::MatrixXd::Random(n_samples, n_components));
-      const Eigen::MatrixXd S(Eigen::MatrixXd::Random(n_components, n_samples));
-
-      KernelAA<Backend> aa(K, C, S);
-
-      CHECK_THROWS(aa.set_line_search_sigma(-1));
-      CHECK_THROWS(aa.set_line_search_beta(-1));
-   }
-}
-
 TEST_CASE("Test dictionary update with Eigen matrices",
           "[kernel_aa][eigen_backend]")
 {
@@ -75,6 +54,9 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       const double final_cost = aa.cost();
 
       CHECK(final_cost < initial_cost);
+
+      const auto updated_C = aa.get_dictionary();
+      CHECK(is_left_stochastic_matrix(C, 1e-12));
    }
 
    SECTION("Single dictionary update reduces cost function with non-zero delta")
@@ -156,9 +138,12 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       }
 
       const Eigen::MatrixXd X(basis * S);
-      const Eigen::MatrixXd K(X.transpose() * X);
+      const Eigen::MatrixXd basis_projection = X * C;
 
+      REQUIRE(is_equal(basis, basis_projection, tolerance));
       REQUIRE((X - X * C * S).norm() < tolerance);
+
+      const Eigen::MatrixXd K(X.transpose() * X);
 
       const double delta = 0;
       KernelAA<Backend> aa(K, C, S, delta);
@@ -183,7 +168,7 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       const int n_features = 20;
       const int n_components = 15;
       const int n_samples = 600;
-      const int max_iter = 100;
+      const int max_iter = 500;
       const double tolerance = 1e-6;
 
       const Eigen::MatrixXd X(
@@ -220,6 +205,9 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       }
 
       REQUIRE(iter < max_iter);
+
+      const auto updated_C = aa.get_dictionary();
+      CHECK(is_left_stochastic_matrix(updated_C, 1e-12));
    }
 
    SECTION("Repeated updates converge to fixed point with non-zero delta")
@@ -227,8 +215,8 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       const int n_features = 30;
       const int n_components = 11;
       const int n_samples = 320;
-      const int max_iter = 100;
-      const double tolerance = 1e-6;
+      const int max_iter = 1000;
+      const double tolerance = 1e-4;
 
       const Eigen::MatrixXd X(
          Eigen::MatrixXd::Random(n_features, n_samples));
@@ -264,6 +252,15 @@ TEST_CASE("Test dictionary update with Eigen matrices",
       }
 
       REQUIRE(iter < max_iter);
+
+      const auto updated_C = aa.get_dictionary();
+      CHECK(is_left_stochastic_matrix(updated_C, 1e-12));
+
+      const auto updated_alpha = aa.get_scale_factors();
+      for (int i = 0; i < n_components; ++i) {
+         CHECK(updated_alpha(i, i) >= 1 - delta);
+         CHECK(updated_alpha(i, i) <= 1 + delta);
+      }
    }
 }
 
@@ -368,7 +365,7 @@ TEST_CASE("Test weights update with Eigen matrices",
                }
             }
          }
-         archetype_indices.push_back(current_index);
+         archetype_indices[i] = current_index;
       }
 
       Eigen::MatrixXd C(Eigen::MatrixXd::Zero(n_samples, n_components));
@@ -386,9 +383,12 @@ TEST_CASE("Test weights update with Eigen matrices",
       }
 
       const Eigen::MatrixXd X(basis * S);
-      const Eigen::MatrixXd K(X.transpose() * X);
 
+      const Eigen::MatrixXd basis_projection = X * C;
+      REQUIRE(is_equal(basis, basis_projection, tolerance));
       REQUIRE((X - X * C * S).norm() < tolerance);
+
+      const Eigen::MatrixXd K(X.transpose() * X);
 
       const double delta = 0;
       KernelAA<Backend> aa(K, C, S, delta);
@@ -451,6 +451,9 @@ TEST_CASE("Test weights update with Eigen matrices",
       }
 
       REQUIRE(iter < max_iter);
+
+      const auto updated_S = aa.get_weights();
+      CHECK(is_left_stochastic_matrix(updated_S, 1e-12));
    }
 
    SECTION("Repeated updates converge to fixed point with non-zero delta")
@@ -495,6 +498,9 @@ TEST_CASE("Test weights update with Eigen matrices",
       }
 
       REQUIRE(iter < max_iter);
+
+      const auto updated_S = aa.get_weights();
+      CHECK(is_left_stochastic_matrix(updated_S, 1e-12));
    }
 }
 
