@@ -138,7 +138,7 @@ TEST_CASE("Test dictionary update with Eigen matrices",
                }
             }
          }
-         archetype_indices.push_back(current_index);
+         archetype_indices[i] = current_index;
       }
 
       Eigen::MatrixXd C(Eigen::MatrixXd::Zero(n_samples, n_components));
@@ -436,6 +436,7 @@ TEST_CASE("Test weights update with Eigen matrices",
       double old_cost = aa.cost();
       double new_cost = old_cost;
       int iter = 0;
+
       while (std::abs(cost_delta) > tolerance && iter < max_iter) {
          old_cost = new_cost;
          const int error = aa.update_weights();

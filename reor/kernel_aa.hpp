@@ -9,8 +9,9 @@
 #include "backend_interface.hpp"
 #include "numerics_helpers.hpp"
 
-#include <deque>
 #include <stdexcept>
+
+#include <iostream>
 
 namespace reor {
 
@@ -202,7 +203,11 @@ int KernelAA<Backend>::weights_line_search()
       backends::threshold_min(S, 0);
       backends::normalize_columns_by_lpnorm(S, 1, safety);
 
-      const double next_cost = cost();
+      backends::gemm(1, S, S, 0, SSt, backends::Op_flag::None,
+                     backends::Op_flag::Transpose);
+
+      const double next_cost = trace_K + backends::trace_gemm_op(-2, KC, S)
+         + backends::trace_gemm_op(1, SSt, CtKC);
       if (next_cost <= current_cost - sigma * alpha_S * incr_norm) {
          alpha_S /= beta;
          finished_searching = true;
@@ -224,8 +229,16 @@ int KernelAA<Backend>::update_weights()
    const std::size_t n_components = backends::rows(S);
    const std::size_t n_samples = backends::cols(S);
 
-   backends::gemm(1, S, S, 1, SSt,
-                  backends::Op_flag::None, backends::Op_flag::Transpose);
+   backends::gemm(1, K, C, 1, KC);
+   if (delta > 0) {
+      backends::gemm(1, KC, diag_alpha, 0, KC);
+   }
+
+   backends::gemm(1, C, KC, 0, CtKC,
+                  backends::Op_flag::Transpose);
+   if (delta > 0) {
+      backends::gemm(1, diag_alpha, CtKC, 0, CtKC);
+   }
 
    // update gradient of cost function with respect to weights
    update_weights_gradient();
@@ -284,7 +297,20 @@ int KernelAA<Backend>::dictionary_line_search()
       backends::threshold_min(C, 0);
       backends::normalize_columns_by_lpnorm(C, 1, safety);
 
-      const double next_cost = cost();
+      backends::gemm(1, K, C, 1, KC);
+      if (delta > 0) {
+         backends::gemm(1, KC, diag_alpha, 0, KC);
+      }
+
+      backends::gemm(1, C, KC, 0, CtKC,
+                     backends::Op_flag::Transpose);
+      if (delta > 0) {
+         backends::gemm(1, diag_alpha, CtKC, 0, CtKC);
+      }
+
+      const double next_cost = trace_K + backends::trace_gemm_op(-2, KC, S)
+         + backends::trace_gemm_op(1, SSt, CtKC);
+
       if (next_cost <= current_cost - sigma * alpha_C * incr_norm) {
          alpha_C /= beta;
          finished_searching = true;
@@ -366,6 +392,7 @@ int KernelAA<Backend>::update_dictionary()
    const std::size_t n_components = backends::cols(C);
 
    // enforce initial normalization
+   Matrix inv_alpha = Backend::create_diagonal_matrix(n_components, 1);
    if (delta > 0) {
       for (std::size_t i = 0; i < n_components; ++i) {
          double sum = 0;
@@ -373,15 +400,10 @@ int KernelAA<Backend>::update_dictionary()
             sum += backends::get_matrix_element(t, i, C);
          }
          backends::set_matrix_element(i, i, sum, diag_alpha);
+         backends::set_matrix_element(i, i, 1. / sum, inv_alpha);
       }
 
-      for (std::size_t i = 0; i < n_components; ++i) {
-         const double sum = backends::get_matrix_element(i, i, diag_alpha);
-         for (std::size_t t = 0; t < n_samples; ++t) {
-            const double cti = backends::get_matrix_element(t, i, C);
-            backends::set_matrix_element(t, i, cti / sum, C);
-         }
-      }
+      backends::gemm(1, C, inv_alpha, 0, C);
    }
 
    backends::gemm(1, S, S, 1, SSt,
@@ -393,11 +415,13 @@ int KernelAA<Backend>::update_dictionary()
    // compute next increment
    Matrix projector = Backend::create_constant_matrix(n_samples, 1, 1);
    Matrix sums = Backend::create_matrix(1, n_components);
-   backends::gemm(1, grad_C, C, 0, incr_C,
+   Matrix gC = Backend::create_matrix(n_components, n_components);
+   backends::gemm(1, grad_C, C, 0, gC,
                   backends::Op_flag::Transpose);
+
    for (std::size_t i = 0; i < n_components; ++i) {
       backends::set_matrix_element(
-         0, i, backends::get_matrix_element(i, i, incr_C), sums);
+         0, i, backends::get_matrix_element(i, i, gC), sums);
    }
    backends::gemm(1, projector, sums, 0, incr_C);
    backends::geam(1, grad_C, -1, incr_C, incr_C);
