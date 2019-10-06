@@ -6,8 +6,8 @@
  * @brief provides implementation of Eigen3 backend
  */
 
-#include "reor/backend_interface.hpp"
-#include "reor/backends/eigen_type_traits.hpp"
+#include "reor_cxx/backend_interface.hpp"
+#include "reor_cxx/backends/eigen_type_traits.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

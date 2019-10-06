@@ -1,14 +1,14 @@
-#ifndef REOR_PYREOR_EIGEN_KERNEL_AA_HPP_INCLUDED
-#define REOR_PYREOR_EIGEN_KERNEL_AA_HPP_INCLUDED
+#ifndef REOR_EIGEN_KERNEL_AA_HPP_INCLUDED
+#define REOR_EIGEN_KERNEL_AA_HPP_INCLUDED
 
 /**
- * @file pyreor_eigen_kernel_aa.hpp
+ * @file eigen_kernel_aa.hpp
  * @brief contains definition of wrapper class for kernel AA
  */
 
-#include "reor/backends/eigen_backend.hpp"
-#include "reor/furthest_sum.hpp"
-#include "reor/kernel_aa.hpp"
+#include "reor_cxx/backends/eigen_backend.hpp"
+#include "reor_cxx/furthest_sum.hpp"
+#include "reor_cxx/kernel_aa.hpp"
 
 #include <Eigen/Core>
 

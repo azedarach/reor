@@ -1,4 +1,4 @@
-from .pyreor_ext import backends
+from .reor_ext import backends
 
 def _check_backend(backend, whom):
     if backend not in backends():

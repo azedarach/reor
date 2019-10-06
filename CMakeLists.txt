@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 
-project(REOR VERSION 0.1.0 LANGUAGES CXX)
+project(Reor)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -11,15 +11,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 include(ReorBuildOptions)
 
 if(NOT REOR_INSTALL_INCLUDE_DIR)
-  set(REOR_INSTALL_INCLUDE_DIR include
+  set(REOR_INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/reor_cxx"
     CACHE PATH
     "The directory relative to CMAKE_INSTALL_PREFIX where Reor headers are installed")
-endif()
-
-if(NOT REOR_INSTALL_CMAKE_DIR)
-  set(REOR_INSTALL_CMAKE_DIR share/reor
-    CACHE PATH
-    "The directory relative to CMAKE_INSTALL_PREFIX where Reor CMake files are installed")
 endif()
 
 find_package(Eigen3 3.1 REQUIRED)
@@ -29,43 +23,59 @@ if(ENABLE_COMPILER_WARNINGS)
   include(CompilerWarnings)
 endif()
 
-add_library(reor INTERFACE)
-target_include_directories(reor INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+set(REOR_BINDINGS_SOURCE_DIR src/reor)
+set(REOR_CXX_SOURCE_DIR ${BINDINGS_SOURCE_DIR}/reor_cxx)
+
+set(REOR_CXX_HEADERS
+  ${REOR_CXX_SOURCE_DIR}/backends/eigen_backend.hpp
+  ${REOR_CXX_SOURCE_DIR}/backends/eigen_type_traits.hpp
+  ${REOR_CXX_SOURCE_DIR}/backend_interface.hpp
+  ${REOR_CXX_SOURCE_DIR}/backends.hpp
+  ${REOR_CXX_SOURCE_DIR}/furthest_sum.hpp
+  ${REOR_CXX_SOURCE_DIR}/kernel_aa.hpp
+  ${REOR_CXX_SOURCE_DIR}/numeerics_helpers.hpp
+  ${REOR_CXX_SOURCE_DIR}/spg.hpp
+)
+
+set(REOR_BINDINGS_SRC
+  ${REOR_BINDINGS_SOURCE_DIR}/bindings.cpp
+)
+
+add_library(reor_cxx INTERFACE)
+target_include_directories(reor_cxx INTERFACE
+  $<BUILD_INTERFACE:${REOR_CXX_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${REOR_INSTALL_INCLUDE_DIR}>)
 
 if(ENABLE_COMPILER_WARNINGS)
-  target_compile_options(reor INTERFACE
-    ${CXX_WARNING_FLAGS})
+  target_compile_options(reor_cxx INTERFACE
+    $<$<COMPILE_LANGUAGE:CXX>:${CXX_WARNING_FLAGS}>)
 endif()
 
 if(TARGET Eigen3::Eigen)
-  target_link_libraries(reor
+  target_link_libraries(reor_cxx
     INTERFACE
     Eigen3::Eigen)
 endif()
 
-install(DIRECTORY reor DESTINATION ${REOR_INSTALL_INCLUDE_DIR})
+add_subdirectory(lib/pybind11)
+pybind11_add_module(reor_ext ${REOR_BINDINGS_SRC})
 
-install(TARGETS
-  reor
-  EXPORT ReorTargets)
+target_include_directories(reor_ext PUBLIC
+  $<BUILD_INTERFACE:${REOR_CXX_SOURCE_DIR} ${REOR_BINDINGS_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:${REOR_INSTALL_INCLUDE_DIR}>)
+target_link_libraries(reor_ext PUBLIC reor_cxx)
 
-add_library(Reor::reor ALIAS reor)
+if(TARGET Eigen3::Eigen)
+  target_link_libraries(reor_ext
+    INTERFACE
+    Eigen3::Eigen)
 
-export(TARGETS reor
-  NAMESPACE Reor::
-  FILE "${PROJECT_BINARY_DIR}/${REOR_INSTALL_CMAKE_DIR}/ReorTargets.cmake")
-
-export(PACKAGE REOR)
-
-add_subdirectory(bindings EXCLUDE_FROM_ALL)
-add_subdirectory(examples EXCLUDE_FROM_ALL)
-
-if(ENABLE_TESTING)
-  enable_testing()
-  add_subdirectory(test EXCLUDE_FROM_ALL)
+  target_compile_definitions(reor_ext PUBLIC HAVE_EIGEN)
 endif()
 
-include(ReorGenerateConfig)
-generate_reor_config_files()
+if(ENABLE_COMPILER_WARNINGS)
+  target_compile_options(reor_ext PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:${CXX_WARNING_FLAGS}>)
+endif()
+
+add_library(Reor::reor_cxx ALIAS reor_cxx)

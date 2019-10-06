@@ -8,7 +8,7 @@ import numpy as np
 
 from sklearn.utils import check_array, check_random_state
 
-from . import pyreor_ext
+from . import reor_ext
 from ._random_matrix import left_stochastic_matrix
 from ._validation import _check_backend
 
