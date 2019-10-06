@@ -8,6 +8,7 @@
 #include <pybind11/pybind11.h>
 
 #ifdef HAVE_EIGEN
+#include "eigen_convex_coding.hpp"
 #include "eigen_kernel_aa.hpp"
 #endif
 
@@ -30,6 +31,22 @@ PYBIND11_MODULE(reor_ext, m) {
          "Return tuple of available backend names");
 
 #ifdef HAVE_EIGEN
+   py::class_<EigenGPNHL2SPA>(m, "EigenGPNHL2SPA")
+      .def(py::init<
+           const Eigen::Ref<const Eigen::MatrixXd>&,
+           const Eigen::Ref<const Eigen::MatrixXd>&,
+           const Eigen::Ref<const Eigen::MatrixXd>& >())
+      .def_property("epsilon_states",
+                    &EigenGPNHL2SPA::get_epsilon_states,
+                    &EigenGPNHL2SPA::set_epsilon_states)
+      .def("get_dictionary", &EigenGPNHL2SPA::get_dictionary,
+           py::return_value_policy::copy)
+      .def("get_weights", &EigenGPNHL2SPA::get_weights,
+           py::return_value_policy::copy)
+      .def("cost", &EigenGPNHL2SPA::cost)
+      .def("update_dictionary", &EigenGPNHL2SPA::update_dictionary)
+      .def("update_weights", &EigenGPNHL2SPA::update_weights);
+
    m.def("furthest_sum_eigen", &furthest_sum_eigen,
          py::arg("dissimilarities"),
          py::arg("n_components"),

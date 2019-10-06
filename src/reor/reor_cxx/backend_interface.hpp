@@ -2,6 +2,7 @@
 #define REOR_BACKEND_INTERFACE_HPP_INCLUDED
 
 #include <cstddef>
+#include <limits>
 
 namespace reor {
 

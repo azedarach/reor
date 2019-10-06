@@ -31,6 +31,7 @@ set(REOR_CXX_HEADERS
   ${REOR_CXX_SOURCE_DIR}/backends/eigen_type_traits.hpp
   ${REOR_CXX_SOURCE_DIR}/backend_interface.hpp
   ${REOR_CXX_SOURCE_DIR}/backends.hpp
+  ${REOR_CXX_SOURCE_DIR}/convex_coding.hpp
   ${REOR_CXX_SOURCE_DIR}/furthest_sum.hpp
   ${REOR_CXX_SOURCE_DIR}/kernel_aa.hpp
   ${REOR_CXX_SOURCE_DIR}/numeerics_helpers.hpp
