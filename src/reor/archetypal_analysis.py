@@ -221,9 +221,9 @@ def kernel_aa(kernel, dictionary=None, weights=None,
               init=None, tolerance=1e-6,
               max_iterations=1000,
               verbose=0, random_state=None, backend=None, **kwargs):
-    r"""Perform kernel archetypal analysis.
+    """Perform kernel archetypal analysis.
 
-       Performs archetypal analysis given a kernel matrix computed
+    Performs archetypal analysis given a kernel matrix computed
     from the original data.
 
     Parameters
@@ -432,7 +432,7 @@ class KernelAA():
         self.verbose = verbose
         self.random_state = random_state
         self.backend = backend
-    
+
     def fit_transform(self, kernel, dictionary=None, weights=None, **kwargs):
         """Perform kernel archetypal analysis and return transformed data.
 
