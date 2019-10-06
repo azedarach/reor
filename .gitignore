@@ -6,3 +6,6 @@
 *.x
 
 build/
+*.egg*
+.coverage
+__pycache__
