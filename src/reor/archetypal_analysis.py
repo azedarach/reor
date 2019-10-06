@@ -1,3 +1,8 @@
+"""
+Provides routines for performing kernel AA.
+"""
+
+
 from __future__ import print_function
 
 import numbers
@@ -11,6 +16,7 @@ from sklearn.utils import check_array, check_random_state
 from . import reor_ext
 from ._random_matrix import left_stochastic_matrix
 from ._validation import _check_backend
+
 
 INTEGER_TYPES = (numbers.Integral, np.integer)
 
@@ -84,7 +90,7 @@ def _initialize_kernel_aa_dictionary_furthest_sum(
         np.tile(kernel_diag[:, np.newaxis], (1, n_samples)))
 
     if backend == 'eigen':
-        selected = pyreor_ext.furthest_sum_eigen(
+        selected = reor_ext.furthest_sum_eigen(
             dissimilarities, n_components, start_index, exclude, n_extra_steps)
     else:
         raise ValueError("Invalid backend parameter '%s'." % backend)
@@ -103,46 +109,36 @@ def _initialize_kernel_aa_dictionary(kernel, n_components, init='furthest_sum',
         init = 'furthest_sum'
 
     if init == 'furthest_sum':
-        if 'start_index' in kwargs:
-            start_index = kwargs['start_index']
-        else:
-            start_index = None
-
-        if 'n_extra_steps' in kwargs:
-            n_extra_steps = kwargs['n_extra_steps']
-        else:
-            n_extra_steps = 10
-
-        if 'exclude' in kwargs:
-            exclude = kwargs['exclude']
-        else:
-            exclude = None
+        start_index = kwargs.get('start_index', None)
+        n_extra_steps = kwargs.get('n_extra_steps', 10)
+        exclude = kwargs.get('exclude', None)
 
         return _initialize_kernel_aa_dictionary_furthest_sum(
             kernel, n_components, start_index=start_index,
             n_extra_steps=n_extra_steps,
             exclude=exclude, random_state=random_state)
-    elif init == 'random':
+
+    if init == 'random':
         return _initialize_kernel_aa_dictionary_random(
             kernel, n_components, random_state=random_state)
-    else:
-        raise ValueError(
-            'Invalid init parameter: got %r instead of one of %r' %
-            (init, INITIALIZATION_METHODS))
+
+    raise ValueError(
+        'Invalid init parameter: got %r instead of one of %r' %
+        (init, INITIALIZATION_METHODS))
 
 
 def _initialize_kernel_aa_weights(kernel, n_components, init='furthest_sum',
-                                  random_state=None, **kwargs):
+                                  random_state=None):
     if init is None:
         init = 'furthest_sum'
 
     if init in ('furthest_sum', 'random'):
         return _initialize_kernel_aa_weights_random(
             kernel, n_components, random_state=random_state)
-    else:
-        raise ValueError(
-            'Invalid init parameter: got %r instead of one of %r' %
-            (init, INITIALIZATION_METHODS))
+
+    raise ValueError(
+        'Invalid init parameter: got %r instead of one of %r' %
+        (init, INITIALIZATION_METHODS))
 
 
 def _initialize_kernel_aa(kernel, n_components, init='furthest_sum',
@@ -178,7 +174,7 @@ def _iterate_kernel_aa_eigen(kernel, dictionary, weights,
             'Iteration', 'Cost', 'Cost delta', 'Time'))
         print(60 * '-')
 
-    solver = pyreor_ext.EigenKernelAA(kernel, dictionary, weights, delta)
+    solver = reor_ext.EigenKernelAA(kernel, dictionary, weights, delta)
 
     old_cost = solver.cost()
     new_cost = old_cost
@@ -306,11 +302,13 @@ def kernel_aa(kernel, dictionary=None, weights=None,
                          'positive; got (tolerance=%r)' % tolerance)
 
     if init == 'custom' and update_dictionary and update_weights:
+        n_features = dictionary.shape[0]
         _check_init_weights(weights, (n_components, n_samples),
                             'kernel_aa (input weights)')
         _check_init_dictionary(dictionary, (n_features, n_components),
                                'kernel_aa (input dictionary)')
     elif not update_dictionary and update_weights:
+        n_features = dictionary.shape[0]
         _check_init_dictionary(dictionary, (n_features, n_components),
                                'kernel_aa (input dictionary)')
         weights = _initialize_kernel_aa_weights(kernel, n_components, init=init,
@@ -341,12 +339,12 @@ def kernel_aa(kernel, dictionary=None, weights=None,
     if n_iter == max_iterations and tolerance > 0:
         warnings.warn('Maximum number of iterations %d reached.' %
                       max_iterations,
-                      warnings.UserWarning)
+                      UserWarning)
 
     return dictionary, weights, n_iter
 
 
-class KernelAA(object):
+class KernelAA():
     r"""Kernel archetypal analysis.
 
     Performs archetypal analysis given a kernel matrix computed
@@ -434,7 +432,7 @@ class KernelAA(object):
         self.verbose = verbose
         self.random_state = random_state
         self.backend = backend
-
+    
     def fit_transform(self, kernel, dictionary=None, weights=None, **kwargs):
         """Perform kernel archetypal analysis and return transformed data.
 
@@ -503,7 +501,6 @@ class KernelAA(object):
         weights : array-like, shape (n_components, n_samples)
             Representation of the data.
         """
-        check_is_fitted(self, 'n_components_')
 
         _, weights, _ = kernel_aa(
             kernel=kernel,
@@ -531,11 +528,11 @@ class KernelAA(object):
         coefficients : array-like, shape (n_samples, n_samples)
             Matrix of coefficients for original data.
         """
-        check_is_fitted(self, 'n_components_')
+
         return np.dot(self.dictionary_, weights)
 
 
-class ArchetypalAnalysis(object):
+class ArchetypalAnalysis():
     r"""Standard archetypal analysis.
 
     Performs archetypal analysis by minimizing the cost function::
@@ -708,7 +705,6 @@ class ArchetypalAnalysis(object):
         weights : array-like, shape (n_components, n_samples)
             Representation of the data.
         """
-        check_is_fitted(self, 'n_components_')
 
         if self.kernel_func is None:
             kernel = np.dot(data.T, data)
@@ -741,5 +737,5 @@ class ArchetypalAnalysis(object):
         coefficients : array-like, shape (n_samples, n_samples)
             Matrix of coefficients for original data.
         """
-        check_is_fitted(self, 'n_components_')
+
         return np.dot(self.dictionary_, weights)
