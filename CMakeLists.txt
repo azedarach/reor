@@ -51,6 +51,13 @@ set(REOR_TEST_SRC
    ${REOR_TEST_DIR}/test_kernel_aa.cpp
 )
 
+if(TARGET Eigen3::Eigen)
+  set(REOR_TEST_SRC
+    ${REOR_TEST_SRC}
+    ${REOR_TEST_DIR}/test_eigen_backend.cpp
+)
+endif()
+
 add_library(reor_cxx INTERFACE)
 target_include_directories(reor_cxx INTERFACE
   $<BUILD_INTERFACE:${REOR_CXX_SOURCE_DIR}>
