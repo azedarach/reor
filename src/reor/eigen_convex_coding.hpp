@@ -7,7 +7,7 @@
  */
 
 #include "reor_cxx/backends/eigen_backend.hpp"
-#include "reor_cxx/convex_coding.hpp"
+#include "reor_cxx/gpnh_l2_spa.hpp"
 
 #include <Eigen/Core>
 

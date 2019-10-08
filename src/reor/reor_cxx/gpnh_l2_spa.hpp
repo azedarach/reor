@@ -1,5 +1,5 @@
-#ifndef REOR_CONVEX_CODING_HPP_INCLUDED
-#define REOR_CONVEX_CODING_HPP_INCLUDED
+#ifndef REOR_GPNH_L2_SPA_HPP_INCLUDED
+#define REOR_GPNH_L2_SPA_HPP_INCLUDED
 
 #include "backend_interface.hpp"
 #include "numerics_helpers.hpp"
