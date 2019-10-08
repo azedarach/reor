@@ -6,6 +6,7 @@
 *.x
 
 build/
+tests/bin
 *.egg*
 .coverage
 __pycache__
