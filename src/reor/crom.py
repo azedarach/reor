@@ -98,7 +98,7 @@ class KMeansMarkovCROM():
     import numpy as np
     X = np.random.rand(4, 10)
     from reor.crom import KMeansMarkovCROM
-    model = KMeansMarkovCROM(n_clusters=4, random_state=0).fix(X)
+    model = KMeansMarkovCROM(n_clusters=4, random_state=0).fit(X)
     """
     def __init__(self, n_clusters, **kwargs):
         self.n_clusters = n_clusters

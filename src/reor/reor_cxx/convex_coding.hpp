@@ -70,10 +70,10 @@ private:
 
    double loss_function() const;
    double penalty() const;
-   void dictionary_gradient();
+   void dictionary_penalty_gradient();
    void update_dictionary_gradient();
    std::tuple<int, double> dictionary_line_search();
-   void weights_gradient();
+   void weights_penalty_gradient();
    void update_weights_gradient();
    std::tuple<int, double> weights_line_search();
 };
@@ -177,7 +177,7 @@ double GPNH_L2_SPA<Backend>::cost() const
 }
 
 template <class Backend>
-void GPNH_L2_SPA<Backend>::dictionary_gradient()
+void GPNH_L2_SPA<Backend>::dictionary_penalty_gradient()
 {
    const std::size_t n_components = backends::cols(S);
    const std::size_t n_features = backends::rows(S);
@@ -207,7 +207,7 @@ void GPNH_L2_SPA<Backend>::update_dictionary_gradient()
    const auto n_samples = backends::cols(X);
    const double normalization = 1.0 / (n_features * n_samples);
 
-   dictionary_gradient();
+   dictionary_penalty_gradient();
 
    backends::gemm(-2 * normalization, X, Gamma, 1, grad_S,
                   backends::Op_flag::None, backends::Op_flag::Transpose);
@@ -287,7 +287,7 @@ int GPNH_L2_SPA<Backend>::update_dictionary()
 }
 
 template <class Backend>
-void GPNH_L2_SPA<Backend>::weights_gradient()
+void GPNH_L2_SPA<Backend>::weights_penalty_gradient()
 {
    const std::size_t n_components = backends::rows(grad_Gamma);
    const std::size_t n_samples = backends::cols(grad_Gamma);
@@ -306,7 +306,7 @@ void GPNH_L2_SPA<Backend>::update_weights_gradient()
    const auto n_samples = backends::cols(X);
    const double normalization = 1.0 / (n_features * n_samples);
 
-   weights_gradient();
+   weights_penalty_gradient();
 
    backends::gemm(-2 * normalization, S, X, 1, grad_Gamma,
                   backends::Op_flag::Transpose, backends::Op_flag::None);
