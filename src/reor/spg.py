@@ -6,7 +6,7 @@ def get_next_spg_step_length(current_step_length, delta, f_old, f_new,
                              sigma_one=0.1, sigma_two=0.9):
     """Return next step length for line search."""
 
-    step_length_tmp = (-0.5 * current_step_length **2 * delta /
+    step_length_tmp = (-0.5 * current_step_length ** 2 * delta /
                        (f_new - f_old - current_step_length * delta))
 
     next_step_length = 0
