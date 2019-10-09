@@ -4,8 +4,6 @@ Provides routines for cluster-based model order reduction.
 
 from __future__ import division
 
-import warnings
-
 import numpy as np
 
 from sklearn.cluster import KMeans
