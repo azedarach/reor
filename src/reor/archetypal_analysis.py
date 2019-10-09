@@ -300,7 +300,7 @@ class KernelAA():
         self.C_old = self.C.copy()
         self.grad_C = np.empty_like(self.C)
         self.delta_grad_C = np.empty_like(self.C)
-        self.incr_C = np.empty_like(self.incr_C)
+        self.incr_C = np.empty_like(self.C)
 
         self.alpha_old = self.alpha.copy()
         self.grad_alpha = np.empty_like(self.alpha)
@@ -327,8 +327,8 @@ class KernelAA():
 
         self.K.T.dot(-2 * self.C.T, out=self.grad_S)
 
-        diag_alpha = np.diag(self.alpha)
         if self.delta > 0:
+            diag_alpha = np.diag(self.alpha)
             self.grad_S.dot(diag_alpha, out=self.grad_S)
 
         self.grad_S += self.S.dot(2 * self.CKCt)
@@ -350,7 +350,7 @@ class KernelAA():
             if f_max is None or f > f_max:
                 f_max = f
 
-        incr_norm = (self.incr_S * self.incr_S).sum()
+        incr_norm = (self.incr_S * self.grad_S).sum()
         step_size = 1
 
         self.S += self.incr_S
@@ -362,14 +362,14 @@ class KernelAA():
 
         error = 0
         factor = self.line_search_gamma * incr_norm
-
-        while next_cost > f_max + step_size * factor:
+        while next_cost > f_max + factor * step_size:
             step_size = get_next_spg_step_length(
                 step_size, incr_norm, current_cost, next_cost,
                 sigma_one=self.line_search_sigma_one,
                 sigma_two=self.line_search_sigma_two)
 
             self.S = self.S_old + step_size * self.incr_S
+
             self.S.T.dot(self.S, out=self.StS)
 
             next_cost = (self.trace_K - 2 * self.S.dot(self.CK).trace() +
@@ -383,7 +383,7 @@ class KernelAA():
     def _update_weights(self):
         """Update weights using line-search."""
 
-        self.S.T.dot(self.S, out=self.StS)
+#        self.S.T.dot(self.S, out=self.StS)
 
         self.C.dot(self.K, out=self.CK)
 
@@ -401,7 +401,7 @@ class KernelAA():
         simplex_project_rows(self.incr_S)
         self.incr_S -= self.S
 
-        line_search_error, line_search_step_size = self._weights_line_search()
+        error, step_size = self._weights_line_search()
 
         self.delta_grad_S = self.grad_S.copy()
 
@@ -409,14 +409,15 @@ class KernelAA():
 
         self.delta_grad_S = self.grad_S - self.delta_grad_S
 
-        sksk = line_search_step_size ** 2 * (self.incr_S * self.incr_S).sum()
-        beta = line_search_step_size * (self.incr_S * self.delta_grad_S).sum()
+        sksk = step_size ** 2 * (self.incr_S * self.incr_S).sum()
+        beta = step_size * (self.incr_S * self.delta_grad_S).sum()
 
         self.alpha_S = get_next_spg_alpha(
-            beta, sksk, alpha_min=self.line_search_alpha_min,
+            beta, sksk,
+            alpha_min=self.line_search_alpha_min,
             alpha_max=self.line_search_alpha_max)
 
-        return line_search_error
+        return error
 
     def _update_dictionary_gradient(self):
         """Update gradient of cost function with respect to dictionary."""
@@ -444,7 +445,7 @@ class KernelAA():
             if f_max is None or f > f_max:
                 f_max = f
 
-        incr_norm = (self.incr_C * self.incr_C).sum()
+        incr_norm = (self.incr_C * self.grad_C).sum()
         step_size = 1
 
         self.C += self.incr_C
@@ -522,7 +523,7 @@ class KernelAA():
             if f_max is None or f > f_max:
                 f_max = f
 
-        incr_norm = (self.incr_alpha * self.incr_alpha).sum()
+        incr_norm = (self.incr_alpha * self.grad_alpha).sum()
         step_size = 1
 
         diag_alpha = diag_alpha_old + self.incr_alpha
@@ -674,6 +675,7 @@ class KernelAA():
     def _kernel_aa(self, kernel, dictionary=None, weights=None,
                    update_dictionary=True, update_weights=True, **kwargs):
         """Perform kernel archetypal analysis."""
+
         n_samples = kernel.shape[0]
 
         if kernel.shape[1] != n_samples:
@@ -694,15 +696,13 @@ class KernelAA():
             raise ValueError('Tolerance for stopping criteria must be '
                              'positive; got (tolerance=%r)' % self.tolerance)
 
-        if self.init == 'custom' and update_dictionary and update_weights:
-            n_features = dictionary.shape[1]
+        if self.init == 'custom':
             _check_init_weights(weights, (n_samples, self.n_components),
                                 '_kernel_aa (input weights)')
-            _check_init_dictionary(dictionary, (self.n_components, n_features),
+            _check_init_dictionary(dictionary, (self.n_components, n_samples),
                                    '_kernel_aa (input dictionary)')
         elif not update_dictionary and update_weights:
-            n_features = dictionary.shape[1]
-            _check_init_dictionary(dictionary, (self.n_components, n_features),
+            _check_init_dictionary(dictionary, (self.n_components, n_samples),
                                    '_kernel_aa (input dictionary)')
             weights = _initialize_kernel_aa_weights(
                 kernel, self.n_components, init=self.init,
@@ -721,6 +721,8 @@ class KernelAA():
         self.K = kernel.copy()
         self.S = weights.copy()
         self.C = dictionary.copy()
+
+        self._initialize_workspace()
 
         cost, n_iter = self._iterate(
             update_dictionary=update_dictionary,
