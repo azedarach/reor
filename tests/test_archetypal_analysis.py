@@ -744,12 +744,12 @@ class TestKernelAASolution(unittest.TestCase):
 
         basis = np.array([[0, 0, 0],
                           [1, 0, 0],
-                          [0, 1, 0],
-                          [1, 0, 1],
-                          [0, 0, 1],
                           [1, 1, 0],
-                          [0, 1, 1],
-                          [1, 1, 1]])
+                          [0, 1, 0],
+                          [0, 0, 1],
+                          [1, 0, 1],
+                          [1, 1, 1],
+                          [0, 1, 1]])
 
         expected_S = right_stochastic_matrix(
             (n_samples, n_components), random_state=random_state)
