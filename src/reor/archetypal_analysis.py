@@ -383,8 +383,6 @@ class KernelAA():
     def _update_weights(self):
         """Update weights using line-search."""
 
-#        self.S.T.dot(self.S, out=self.StS)
-
         self.C.dot(self.K, out=self.CK)
 
         diag_alpha = np.diag(self.alpha)

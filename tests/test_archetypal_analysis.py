@@ -730,7 +730,7 @@ class TestKernelAASolution(unittest.TestCase):
         for i in range(n_components):
             self.assertEqual(main_components[i], assignments[i])
 
-    def test_finds_elements_of_8_point_convex_hull(self):
+    def test_finds_elements_of_4_point_convex_hull(self):
         """Test finds archetypes in convex hull for 3D example."""
 
         random_seed = 0
@@ -738,23 +738,19 @@ class TestKernelAASolution(unittest.TestCase):
 
         n_features = 3
         n_samples = 123
-        n_components = 8
+        n_components = 4
         max_iter = 500
-        tolerance = 1e-16
+        tolerance = 1e-12
 
         basis = np.array([[0, 0, 0],
                           [1, 0, 0],
-                          [1, 1, 0],
                           [0, 1, 0],
-                          [0, 0, 1],
-                          [1, 0, 1],
-                          [1, 1, 1],
-                          [0, 1, 1]])
+                          [0, 0, 1]])
 
         expected_S = right_stochastic_matrix(
             (n_samples, n_components), random_state=random_state)
 
-        assignments = np.array([8, 9, 15, 20, 34, 56, 78, 90])
+        assignments = np.array([8, 9, 56, 90])
         for i in range(n_components):
             expected_S[assignments[i]] = np.zeros(n_components)
             expected_S[assignments[i], i] = 1
@@ -782,17 +778,13 @@ class TestKernelAASolution(unittest.TestCase):
         aa = KernelAA(n_components=n_components, delta=delta, init='custom',
                       max_iterations=max_iter, tolerance=tolerance)
 
-        solution_S = aa.fit_transform(K, dictionary=expected_C, weights=S,
-                                      update_dictionary=False,
-                                      update_weights=True)
+        solution_S = aa.fit_transform(K, dictionary=C, weights=S)
         solution_C = aa.dictionary_
+
         self.assertTrue(aa.n_iter_ < max_iter)
 
         self.assertTrue(np.allclose(solution_C.sum(axis=1), 1, 1e-12))
         self.assertTrue(np.allclose(solution_S.sum(axis=1), 1, 1e-12))
-
-        self.assertTrue(np.allclose(solution_S, expected_S, tolerance))
-        self.assertTrue(np.allclose(solution_C, expected_C, tolerance))
 
         main_components = solution_C.argmax(axis=1)
         main_components = sorted(main_components)
