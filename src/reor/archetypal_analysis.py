@@ -44,7 +44,7 @@ def _initialize_kernel_aa_dictionary_random(
 
     n_samples = kernel.shape[0]
 
-    return right_stochastic_matrix((n_samples, n_components),
+    return right_stochastic_matrix((n_components, n_samples),
                                    random_state=rng)
 
 
@@ -54,7 +54,7 @@ def _initialize_kernel_aa_weights_random(
 
     n_samples = kernel.shape[0]
 
-    return right_stochastic_matrix((n_components, n_samples),
+    return right_stochastic_matrix((n_samples, n_components),
                                    random_state=rng)
 
 
@@ -298,19 +298,19 @@ class KernelAA():
         self.StS = self.S.T.dot(self.S)
 
         self.C_old = self.C.copy()
-        self.grad_C = np.empty_like(self.C)
-        self.delta_grad_C = np.empty_like(self.C)
-        self.incr_C = np.empty_like(self.C)
+        self.grad_C = np.empty_like(self.C, dtype=self.C.dtype)
+        self.delta_grad_C = np.empty_like(self.C, dtype=self.C.dtype)
+        self.incr_C = np.empty_like(self.C, dtype=self.C.dtype)
 
         self.alpha_old = self.alpha.copy()
-        self.grad_alpha = np.empty_like(self.alpha)
-        self.delta_grad_alpha = np.empty_like(self.alpha)
-        self.incr_alpha = np.empty_like(self.alpha)
+        self.grad_alpha = np.empty_like(self.alpha, dtype=self.alpha.dtype)
+        self.delta_grad_alpha = np.empty_like(self.alpha, dtype=self.alpha.dtype)
+        self.incr_alpha = np.empty_like(self.alpha, dtype=self.alpha.dtype)
 
         self.S_old = self.S.copy()
-        self.grad_S = np.empty_like(self.S)
-        self.delta_grad_S = np.empty_like(self.S)
-        self.incr_S = np.empty_like(self.S)
+        self.grad_S = np.empty_like(self.S, dtype=self.S.dtype)
+        self.delta_grad_S = np.empty_like(self.S, dtype=self.S.dtype)
+        self.incr_S = np.empty_like(self.S, dtype=self.S.dtype)
 
         self.alpha_C = 1.0
         self.alpha_S = 1.0
@@ -325,11 +325,11 @@ class KernelAA():
     def _update_weights_gradient(self):
         """Evaluate gradient of cost function with respect to weights."""
 
-        self.K.T.dot(-2 * self.C.T, out=self.grad_S)
+        self.grad_S = self.K.T.dot(-2 * self.C.T)
 
         if self.delta > 0:
             diag_alpha = np.diag(self.alpha)
-            self.grad_S.dot(diag_alpha, out=self.grad_S)
+            self.grad_S = self.grad_S.dot(diag_alpha)
 
         self.grad_S += self.S.dot(2 * self.CKCt)
 
@@ -355,7 +355,7 @@ class KernelAA():
 
         self.S += self.incr_S
 
-        self.S.T.dot(self.S, out=self.StS)
+        self.StS = self.S.T.dot(self.S)
 
         next_cost = (self.trace_K - 2 * self.S.dot(self.CK).trace() +
                      self.StS.dot(self.CKCt).trace())
@@ -370,7 +370,7 @@ class KernelAA():
 
             self.S = self.S_old + step_size * self.incr_S
 
-            self.S.T.dot(self.S, out=self.StS)
+            self.StS = self.S.T.dot(self.S)
 
             next_cost = (self.trace_K - 2 * self.S.dot(self.CK).trace() +
                          self.StS.dot(self.CKCt).trace())
@@ -383,15 +383,15 @@ class KernelAA():
     def _update_weights(self):
         """Update weights using line-search."""
 
-        self.C.dot(self.K, out=self.CK)
+        self.CK = self.C.dot(self.K)
 
         diag_alpha = np.diag(self.alpha)
         if self.delta > 0:
-            diag_alpha.dot(self.CK, out=self.CK)
+            self.CK = diag_alpha.dot(self.CK)
 
-        self.CK.dot(self.C.T, out=self.CKCt)
+        self.CKCt = self.CK.dot(self.C.T)
         if self.delta > 0:
-            self.CKCt.dot(diag_alpha, out=self.CKCt)
+            self.CKCt = self.CKCt.dot(diag_alpha)
 
         self._update_weights_gradient()
 
@@ -420,12 +420,12 @@ class KernelAA():
     def _update_dictionary_gradient(self):
         """Update gradient of cost function with respect to dictionary."""
 
-        self.S.T.dot(-2 * self.K.T, out=self.grad_C)
+        self.grad_C = self.S.T.dot(-2 * self.K.T)
 
         self.grad_C += 2 * self.StS.dot(self.CK)
         if self.delta > 0:
             diag_alpha = np.diag(self.alpha)
-            diag_alpha.dot(self.grad_C, out=self.grad_C)
+            self.grad_C = diag_alpha.dot(self.grad_C)
 
     def _dictionary_line_search(self):
         """Perform single-step of line search for dictionary."""
@@ -448,15 +448,15 @@ class KernelAA():
 
         self.C += self.incr_C
 
-        self.C.dot(self.K, out=self.CK)
+        self.CK = self.C.dot(self.K)
 
         diag_alpha = np.diag(self.alpha)
         if self.delta > 0:
-            diag_alpha.dot(self.CK, out=self.CK)
+            self.CK = diag_alpha.dot(self.CK)
 
-        self.CK.dot(self.C.T, out=self.CKCt)
+        self.CKCt = self.CK.dot(self.C.T)
         if self.delta > 0:
-            self.CKCt.dot(diag_alpha, out=self.CKCt)
+            self.CKCt = self.CKCt.dot(diag_alpha)
 
         next_cost = (self.trace_K - 2 * self.S.dot(self.CK).trace() +
                      self.StS.dot(self.CKCt).trace())
@@ -471,13 +471,13 @@ class KernelAA():
 
             self.C = self.C_old + step_size * self.incr_C
 
-            self.C.dot(self.K, out=self.CK)
+            self.CK = self.C.dot(self.K)
             if self.delta > 0:
-                diag_alpha.dot(self.CK, out=self.CK)
+                self.CK = diag_alpha.dot(self.CK)
 
-            self.CK.dot(self.C.T, out=self.CKCt)
+            self.CKCt = self.CK.dot(self.C.T)
             if self.delta > 0:
-                self.CKCt.dot(diag_alpha, out=self.CKCt)
+                self.CKCt = self.CKCt.dot(diag_alpha)
 
             next_cost = (self.trace_K - 2 * self.S.dot(self.CK).trace() +
                          self.StS.dot(self.CKCt).trace())
@@ -493,7 +493,7 @@ class KernelAA():
         diag_alpha = np.diag(self.alpha)
 
         grad_alpha_tmp = 2 * diag_alpha.dot(self.CKCt.T)
-        self.StS.dot(grad_alpha_tmp, out=grad_alpha_tmp)
+        grad_alpha_tmp = self.StS.dot(grad_alpha_tmp)
 
         grad_alpha_tmp += -2 * self.CKS.T
 
@@ -505,8 +505,8 @@ class KernelAA():
         CKCt_tmp = self.CKCt.copy()
 
         diag_alpha = np.diag(self.alpha)
-        self.CKCt.dot(diag_alpha, out=CKCt_tmp)
-        diag_alpha.dot(CKCt_tmp, out=CKCt_tmp)
+        CKCt_tmp = self.CKCt.dot(diag_alpha)
+        CKCt_tmp = diag_alpha.dot(CKCt_tmp)
 
         current_cost = (self.trace_K - 2 * self.CKS.dot(diag_alpha).trace() +
                         self.StS.dot(CKCt_tmp).trace())
@@ -526,8 +526,8 @@ class KernelAA():
 
         diag_alpha = diag_alpha_old + self.incr_alpha
 
-        self.CKCt.dot(diag_alpha, out=CKCt_tmp)
-        diag_alpha.dot(CKCt_tmp, out=CKCt_tmp)
+        CKCt_tmp = self.CKCt.dot(diag_alpha)
+        CKCt_tmp = diag_alpha.dot(CKCt_tmp)
 
         next_cost = (self.trace_K - 2 * self.CKS.dot(diag_alpha).trace() +
                      self.StS.dot(CKCt_tmp).trace())
@@ -542,8 +542,8 @@ class KernelAA():
 
             diag_alpha = diag_alpha_old + step_size * self.incr_alpha
 
-            self.CKCt.dot(diag_alpha, out=CKCt_tmp)
-            diag_alpha.dot(CKCt_tmp, out=CKCt_tmp)
+            CKCt_tmp = self.CKCt.dot(diag_alpha)
+            CKCt_tmp = diag_alpha.dot(CKCt_tmp)
 
             next_cost = (self.trace_K - 2 * self.CKS.dot(diag_alpha).trace() +
                          self.StS.dot(CKCt_tmp).trace())
@@ -556,16 +556,16 @@ class KernelAA():
     def _update_dictionary(self):
         """Update dictionary using line-search."""
 
-        self.S.T.dot(self.S, out=self.StS)
+        self.StS = self.S.T.dot(self.S)
 
-        self.C.dot(self.K, out=self.CK)
+        self.CK = self.C.dot(self.K)
         diag_alpha = np.diag(self.alpha)
         if self.delta > 0:
-            diag_alpha.dot(self.CK, out=self.CK)
+            self.CK = diag_alpha.dot(self.CK)
 
-        self.CK.dot(self.C.T, out=self.CKCt)
+        self.CKCt = self.CK.dot(self.C.T)
         if self.delta > 0:
-            self.CKCt.dot(diag_alpha, out=self.CKCt)
+            self.CKCt = self.CKCt.dot(diag_alpha)
 
         self._update_dictionary_gradient()
 
@@ -590,15 +590,15 @@ class KernelAA():
             alpha_max=self.line_search_alpha_max)
 
         if self.delta > 0:
-            self.C.dot(self.K, out=self.CK)
-            self.CK.dot(self.S, out=self.CKS)
-            self.CK.dot(self.C.T, out=self.CKCt)
+            self.CK = self.C.dot(self.K)
+            self.CKS = self.CK.dot(self.S)
+            self.CKCt = self.CK.dot(self.C.T)
 
             self._update_scale_factors_gradient()
 
             self.incr_alpha = diag_alpha - self.alpha_alpha * self.grad_alpha
-            np.fmin(self.incr_alpha, 1 - self.delta, out=self.incr_alpha)
-            np.fmax(self.incr_alpha, 1 + self.delta, out=self.incr_alpha)
+            self.incr_alpha = np.fmin(self.incr_alpha, 1 - self.delta)
+            self.incr_alpha = np.fmax(self.incr_alpha, 1 + self.delta)
             self.incr_alpha -= diag_alpha
 
             scales_error, step_size = self._scale_factors_line_search()
