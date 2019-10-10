@@ -270,14 +270,14 @@ class GPNHConvexCoding():
         self.SSt = self.S.dot(self.S.T)
 
         self.Gamma_old = self.Gamma.copy()
-        self.grad_Gamma = np.empty_like(self.Gamma)
-        self.delta_grad_Gamma = np.empty_like(self.Gamma)
-        self.incr_Gamma = np.empty_like(self.Gamma)
+        self.grad_Gamma = np.empty_like(self.Gamma, dtype=self.Gamma.dtype)
+        self.delta_grad_Gamma = np.empty_like(self.Gamma, dtype=self.Gamma.dtype)
+        self.incr_Gamma = np.empty_like(self.Gamma, dtype=self.Gamma.dtype)
 
         self.S_old = self.S.copy()
-        self.grad_S = np.empty_like(self.S)
-        self.delta_grad_S = np.empty_like(self.S)
-        self.incr_S = np.empty_like(self.S)
+        self.grad_S = np.empty_like(self.S, dtype=self.S.dtype)
+        self.delta_grad_S = np.empty_like(self.S, dtype=self.S.dtype)
+        self.incr_S = np.empty_like(self.S, dtype=self.S.dtype)
 
         self.alpha_Gamma = 1.0
         self.alpha_S = 1.0
@@ -299,7 +299,7 @@ class GPNHConvexCoding():
         prefactor = 2.0 / (self.n_components * n_features *
                            (self.n_components - 1.0))
 
-        self.S.dot(self.S.T, out=self.SSt)
+        self.SSt = self.S.dot(self.S.T)
 
         value += (prefactor * self.n_components * self.SSt.trace() -
                   prefactor * self.SSt.sum())
@@ -336,7 +336,7 @@ class GPNHConvexCoding():
 
         D = self.n_components * np.eye(self.n_components) - 1
 
-        D.dot(prefactor * self.S, out=self.grad_S)
+        self.grad_S = D.dot(prefactor * self.S)
 
     def _update_dictionary_gradient(self):
         """Update gradient of cost function with respect to dictionary."""
@@ -391,8 +391,8 @@ class GPNHConvexCoding():
     def _update_dictionary(self):
         """Update dictionary using line-search."""
 
-        self.Gamma.T.dot(self.X, out=self.GtX)
-        self.Gamma.T.dot(self.Gamma, out=self.GtG)
+        self.GtX = self.Gamma.T.dot(self.X)
+        self.GtG = self.Gamma.T.dot(self.Gamma)
 
         self._update_dictionary_gradient()
 
@@ -475,8 +475,8 @@ class GPNHConvexCoding():
     def _update_weights(self):
         """Update weights using line-search."""
 
-        self.S.dot(self.S.T, out=self.SSt)
-        self.X.dot(self.S.T, out=self.XSt)
+        self.SSt = self.S.dot(self.S.T)
+        self.XSt = self.X.dot(self.S.T)
 
         self._update_weights_gradient()
 
