@@ -786,20 +786,15 @@ class TestKernelAASolution(unittest.TestCase):
                                       update_dictionary=False,
                                       update_weights=True)
         solution_C = aa.dictionary_
-        print(aa.n_iter_)
         self.assertTrue(aa.n_iter_ < max_iter)
 
         self.assertTrue(np.allclose(solution_C.sum(axis=1), 1, 1e-12))
         self.assertTrue(np.allclose(solution_S.sum(axis=1), 1, 1e-12))
 
-        print(solution_S - expected_S)
         self.assertTrue(np.allclose(solution_S, expected_S, tolerance))
         self.assertTrue(np.allclose(solution_C, expected_C, tolerance))
 
         main_components = solution_C.argmax(axis=1)
-        print(solution_C)
-        print(main_components)
         main_components = sorted(main_components)
-        print(main_components)
         for i in range(n_components):
             self.assertEqual(main_components[i], assignments[i])

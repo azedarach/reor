@@ -347,7 +347,7 @@ class KernelAA():
 
         f_max = None
         for f in self.f_S_mem:
-            if f_max is None or f > f_max:
+            if f_max is None or f >= f_max:
                 f_max = f
 
         incr_norm = (self.incr_S * self.grad_S).sum()
@@ -442,7 +442,7 @@ class KernelAA():
 
         f_max = None
         for f in self.f_C_mem:
-            if f_max is None or f > f_max:
+            if f_max is None or f >= f_max:
                 f_max = f
 
         incr_norm = (self.incr_C * self.grad_C).sum()
@@ -520,7 +520,7 @@ class KernelAA():
 
         f_max = None
         for f in self.f_alpha_mem:
-            if f_max is None or f > f_max:
+            if f_max is None or f >= f_max:
                 f_max = f
 
         incr_norm = (self.incr_alpha * self.grad_alpha).sum()
