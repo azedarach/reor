@@ -27,7 +27,7 @@ INITIALIZATION_METHODS = (None, 'random', 'furthest_sum')
 def _check_init_weights(weights, shape, whom):
     weights = check_array(weights)
     _check_array_shape(weights, shape, whom)
-    _check_unit_axis_sums(weights, whom, axis=0)
+    _check_unit_axis_sums(weights, whom, axis=1)
 
 
 def _check_init_dictionary(dictionary, shape, whom):
@@ -299,8 +299,6 @@ class GPNHConvexCoding():
         prefactor = 2.0 / (self.n_components * n_features *
                            (self.n_components - 1.0))
 
-        self.SSt = self.S.dot(self.S.T)
-
         value += (prefactor * self.n_components * self.SSt.trace() -
                   prefactor * self.SSt.sum())
 
@@ -368,6 +366,7 @@ class GPNHConvexCoding():
         step_size = 1
 
         self.S += self.incr_S
+        self.SSt = self.S.dot(self.S.T)
 
         next_cost = self._evaluate_cost()
 
@@ -380,6 +379,7 @@ class GPNHConvexCoding():
                 sigma_two=self.line_search_sigma_two)
 
             self.S = self.S_old + step_size * self.incr_S
+            self.SSt = self.S.dot(self.S.T)
 
             next_cost = self._evaluate_cost()
 
@@ -391,6 +391,7 @@ class GPNHConvexCoding():
     def _update_dictionary(self):
         """Update dictionary using line-search."""
 
+        self.SSt = self.S.dot(self.S.T)
         self.GtX = self.Gamma.T.dot(self.X)
         self.GtG = self.Gamma.T.dot(self.Gamma)
 
@@ -444,7 +445,7 @@ class GPNHConvexCoding():
         self.f_Gamma_mem.append(current_cost)
 
         f_max = None
-        for f in self.f_S_mem:
+        for f in self.f_Gamma_mem:
             if f_max is None or f >= f_max:
                 f_max = f
 
