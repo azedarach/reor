@@ -166,7 +166,7 @@ class KMeansMarkovCROM():
 
         Returns
         -------
-        distances : array, shape (n_clusters, n_samples)
+        distances : array, shape (n_samples, n_clusters)
             Array of distances of each sample to the cluster centroids.
         """
 
@@ -195,7 +195,7 @@ class KMeansMarkovCROM():
 
         Returns
         -------
-        labels : array, shape (n_clusters, n_samples)
+        labels : array, shape (n_samples, n_clusters)
             Array containing the probability that each sample is
             associated with each cluster after the given number of
             time-steps.
@@ -207,15 +207,15 @@ class KMeansMarkovCROM():
         n_clusters = self.n_clusters
         n_samples = initial_labels.size
 
-        labels = np.zeros((n_clusters, n_samples), dtype='f8')
+        labels = np.zeros((n_samples, n_clusters), dtype='f8')
         for i in range(n_clusters):
-            labels[i, initial_labels == i] = 1
+            labels[initial_labels == i, i] = 1
 
         if horizon == 0:
             return labels
 
         for m in range(1, horizon + 1):
-            labels = self.transition_matrix_.dot(labels)
+            labels = labels.dot(self.transition_matrix_.T)
 
         return labels
 
