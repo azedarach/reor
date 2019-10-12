@@ -1256,3 +1256,83 @@ class TestMTDConvexCodingParametersUpdate(unittest.TestCase):
             n_iter += 1
 
         self.assertTrue(n_iter < max_iter)
+
+
+class TestMTDConvexCodingPredict(unittest.TestCase):
+    """Provides unit tests for MTD convex coding prediction routine."""
+
+    def test_prediction_matches_example_in_small_example(self):
+        """Test result of calling predict matches expected value."""
+
+        random_seed = 0
+        random_state = check_random_state(random_seed)
+
+        n_features = 3
+        n_components = 2
+        n_samples = 10
+        n_extra = 10
+        tolerance = 1e-12
+
+        lags = [1, 3,]
+        n_lags = len(lags)
+
+        order_weights = random_state.uniform(size=(n_lags,))
+        order_weights /= order_weights.sum()
+
+        transition_matrices = np.empty(
+            (n_lags, n_components, n_components))
+        for i in range(n_lags):
+            transition_matrices[i] = left_stochastic_matrix(
+                (n_components, n_components), random_state=random_state)
+
+        S = random_state.uniform(size=(n_components, n_features))
+
+        Gamma = np.zeros((n_samples + n_extra, n_components), dtype='f8')
+        Gamma[0] = random_state.uniform(size=(n_components,))
+        Gamma[0] /= Gamma[0].sum()
+        Gamma[1] = random_state.uniform(size=(n_components,))
+        Gamma[1] /= Gamma[1].sum()
+        Gamma[2] = random_state.uniform(size=(n_components,))
+        Gamma[2] /= Gamma[2].sum()
+
+        for t in range(3, n_samples + n_extra):
+            Gamma[t] = (
+                order_weights[0] * transition_matrices[0].dot(
+                    Gamma[t - 1]) +
+                order_weights[1] * transition_matrices[1].dot(
+                    Gamma[t - 3]))
+
+        self.assertTrue(np.allclose(order_weights.sum(), 1, tolerance))
+        for i in range(n_lags):
+            self.assertTrue(
+                np.allclose(transition_matrices[i].sum(axis=0), 1, tolerance))
+        self.assertTrue(np.allclose(Gamma.sum(axis=1), 1, tolerance))
+
+        X = Gamma[:n_samples].dot(S)
+
+        model = MTDConvexCoding(n_components=n_components, epsilon_states=4.0,
+                                epsilon_weights=2.2, lags=lags, tolerance=1e-12)
+
+        model.X = X
+        model.Gamma = Gamma[:n_samples]
+        model.S = S
+        model.order_weights = order_weights
+        model.transition_matrices = transition_matrices
+
+        model._initialize_workspace()
+
+        test_X = Gamma[n_samples:].dot(S)
+        transformed_weights = model.transform(test_X)
+        predicted_X = model.predict(test_X, horizon=1)
+
+        self.assertTrue(np.all(np.isnan(predicted_X[:np.max(lags) - 1])))
+        for i in range(np.max(lags) - 1, n_extra):
+            prediction = (
+                model.order_weights[0] * model.transition_matrices[0].dot(
+                    transformed_weights[i]) +
+                model.order_weights[1] * model.transition_matrices[1].dot(
+                    transformed_weights[i - 2]))
+
+            prediction = model.S.T.dot(prediction)
+
+            self.assertTrue(np.allclose(prediction, predicted_X[i], 1e-3))

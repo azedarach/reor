@@ -41,13 +41,11 @@ def _check_init_dictionary(dictionary, shape, whom):
 
 
 def _check_init_order_weights(order_weights, shape, whom):
-    order_weights = check_array(order_weights)
     _check_array_shape(order_weights, shape, whom)
     _check_unit_axis_sums(order_weights, whom, axis=0)
 
 
 def _check_init_transition_matrices(transition_matrices, shape, whom):
-    transition_matrices = check_array(transition_matrices)
     _check_array_shape(transition_matrices, shape, whom)
     _check_unit_axis_sums(transition_matrices, whom, axis=1)
 
@@ -525,7 +523,7 @@ class MTDConvexCoding():
         self.f_Gamma_mem.append(current_cost)
 
         f_max = None
-        for f in self.f_S_mem:
+        for f in self.f_Gamma_mem:
             if f_max is None or f >= f_max:
                 f_max = f
 
@@ -717,7 +715,8 @@ class MTDConvexCoding():
 
         old_cost = self._evaluate_cost()
         new_cost = old_cost
-
+        if self.verbose:
+            print('old_cost = ', old_cost)
         for n_iter in range(self.max_iterations):
             start_time = time.perf_counter()
 
@@ -908,9 +907,67 @@ class MTDConvexCoding():
         self._mtd_convex_coding(
             data=data,
             dictionary=self.S,
-            update_dictionary=False, update_weights=True)
+            order_weights=self.order_weights,
+            transition_matrices=self.transition_matrices,
+            update_dictionary=False, update_weights=True,
+            update_parameters=False)
 
         return self.Gamma
+
+    def predict(self, data, horizon=0):
+        """Predict values over given horizon.
+
+        Parameters
+        ----------
+        data : array-like, shape (n_samples, n_features)
+            Data matrix to use for prediction.
+
+        Returns
+        -------
+        weights : array-like, shape (n_samples, n_features)
+            Predicted values for the given forecast horizon.
+        """
+
+        initial_weights = self.transform(data)
+
+        if horizon == 0:
+            return self.inverse_transform(initial_weights)
+
+        def predict_next_step_weights(current_weights):
+            max_lag = self.lags.max()
+            n_samples, n_components = current_weights.shape
+
+            if n_samples < max_lag:
+                return np.full((n_components,), np.NaN,
+                               dtype=current_weights.dtype)
+
+            predicted_weights = np.zeros(
+                n_components, dtype=current_weights.dtype)
+
+            for i, lag in enumerate(self.lags):
+                predicted_weights += (
+                    self.order_weights[i] *
+                    self.transition_matrices[i].dot(current_weights[-lag]))
+
+            return predicted_weights
+
+        predicted_weights = np.zeros_like(
+            initial_weights, dtype=initial_weights.dtype)
+
+        max_lag = self.lags.max()
+        predicted_weights[:max_lag - 1] = np.NaN
+
+        n_samples = initial_weights.shape[0]
+        for i in range(max_lag - 1, n_samples):
+            lagged_weights = initial_weights[i - max_lag + 1:i + 1]
+            for lead in range(horizon):
+                next_weights = predict_next_step_weights(
+                    lagged_weights)
+                lagged_weights = np.roll(lagged_weights, -1, axis=0)
+                lagged_weights[-1] = next_weights
+            predicted_weights[i] = lagged_weights[-1]
+
+        return self.inverse_transform(predicted_weights)
 
     def inverse_transform(self, weights):
         """Transform data back into its original space.
