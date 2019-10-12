@@ -222,7 +222,7 @@ class GPNHConvexCoding():
         self.tolerance = tolerance
         self.max_iterations = max_iterations
         self.verbose = verbose
-        self.random_state = random_state
+        self.random_state = check_random_state(random_state)
         self.line_search_memory = kwargs.get('line_search_memory', 1)
         self.line_search_gamma = kwargs.get('gamma', 1e-4)
         self.line_search_alpha_min = kwargs.get('alpha_min', 1e-3)

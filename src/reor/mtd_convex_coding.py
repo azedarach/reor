@@ -715,8 +715,7 @@ class MTDConvexCoding():
 
         old_cost = self._evaluate_cost()
         new_cost = old_cost
-        if self.verbose:
-            print('old_cost = ', old_cost)
+
         for n_iter in range(self.max_iterations):
             start_time = time.perf_counter()
 

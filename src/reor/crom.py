@@ -175,7 +175,7 @@ class KMeansMarkovCROM():
     def predict(self, X, sample_weight=None, horizon=0):
         """Predict cluster assignment of each sample for the given horizon.
 
-        If the requested forecast is horizon, then the label for each
+        If the requested horizon is zero, then the label for each
         sample is computed. Otherwise, the probability distribution
         after the number of timesteps is computed using the fitted
         transition matrix.
