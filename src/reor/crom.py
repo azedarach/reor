@@ -14,7 +14,7 @@ def kmeans_markov_crom(X, n_clusters=None, sample_weight=None, **kwargs):
 
     Parameters
     ----------
-    X : array-like, shape (n_features, n_samples)
+    X : array-like, shape (n_samples, n_features)
         The data to be used in calculating the reduction.
 
     n_clusters : integer or None
@@ -39,7 +39,7 @@ def kmeans_markov_crom(X, n_clusters=None, sample_weight=None, **kwargs):
     """
 
     kmeans = KMeans(n_clusters=n_clusters, **kwargs).fit(
-        X.T, sample_weight=sample_weight)
+        X, sample_weight=sample_weight)
 
     cluster_centers = kmeans.cluster_centers_
     labels = kmeans.labels_
@@ -75,7 +75,7 @@ class KMeansMarkovCROM():
 
     Attributes
     ----------
-    cluster_centers : array, shape (n_features, n_clusters)
+    cluster_centers : array, shape (n_clusters, n_features)
         Array containing the locations of the cluster centers.
 
     labels : array, shape (n_samples)
@@ -94,7 +94,7 @@ class KMeansMarkovCROM():
     Examples
     --------
     import numpy as np
-    X = np.random.rand(4, 10)
+    X = np.random.rand(10, 4)
     from reor.crom import KMeansMarkovCROM
     model = KMeansMarkovCROM(n_clusters=4, random_state=0).fit(X)
     """
@@ -107,7 +107,7 @@ class KMeansMarkovCROM():
 
         Parameters
         ----------
-        X : array-like, shape (n_features, n_samples)
+        X : array-like, shape (n_samples, n_features)
             Data matrix to be used to fit reduced order model.
 
         sample_weight : array-like, shape (n_samples,), optional
@@ -123,7 +123,7 @@ class KMeansMarkovCROM():
             X, n_clusters=self.n_clusters, sample_weight=sample_weight,
             **self.kmeans_kwargs)
 
-        self.cluster_centers_ = kmeans.cluster_centers_.T
+        self.cluster_centers_ = kmeans.cluster_centers_
         self.labels_ = kmeans.labels_
         self.inertia_ = kmeans.inertia_
         self.n_iter_ = kmeans.n_iter_
@@ -137,7 +137,7 @@ class KMeansMarkovCROM():
 
         Parameters
         ----------
-        X : array-like, shape (n_features, n_samples)
+        X : array-like, shape (n_samples, n_features)
             Data matrix to be used to fit reduced order model.
 
         sample_weight : array-like, shape (n_samples,), optional
@@ -150,14 +150,14 @@ class KMeansMarkovCROM():
             Array of labels for each sample
         """
 
-        return self.kmeans_.fit_predict(X.T, sample_weight=sample_weight)
+        return self.kmeans_.fit_predict(X, sample_weight=sample_weight)
 
     def fit_transform(self, X, sample_weight=None):
         """Perform model reduction and transform data to cluster-distance space.
 
         Parameters
         ----------
-        X : array-like, shape (n_features, n_samples)
+        X : array-like, shape (n_samples, n_features)
             Data matrix to be used to fit reduced order model.
 
         sample_weight : array-like, shape (n_samples,), optional
@@ -170,7 +170,7 @@ class KMeansMarkovCROM():
             Array of distances of each sample to the cluster centroids.
         """
 
-        return self.kmeans_.fit_transform(X.T, sample_weight=sample_weight)
+        return self.kmeans_.fit_transform(X, sample_weight=sample_weight)
 
     def predict(self, X, sample_weight=None, horizon=0):
         """Predict cluster assignment of each sample for the given horizon.
@@ -182,7 +182,7 @@ class KMeansMarkovCROM():
 
         Parameters
         ----------
-        X : array-like, shape (n_features, n_samples)
+        X : array-like, shape (n_samples, n_features)
             Data matrix to evaluate prediction for.
 
         sample_weight : array-like, shape (n_samples,), optional
@@ -202,7 +202,7 @@ class KMeansMarkovCROM():
         """
 
         # Get cluster assignments at the current time-step
-        initial_labels = self.kmeans_.predict(X.T, sample_weight=sample_weight)
+        initial_labels = self.kmeans_.predict(X, sample_weight=sample_weight)
 
         n_clusters = self.n_clusters
         n_samples = initial_labels.size
@@ -224,13 +224,13 @@ class KMeansMarkovCROM():
 
         Parameters
         ----------
-        X : array-like, shape (n_features, n_samples)
+        X : array-like, shape (n_samples, n_features)
             Data matrix to be transformed.
 
         Returns
         -------
-        distances : array, shape (n_clusters, n_samples)
+        distances : array, shape (n_samples, n_clusters)
             Array containing distance of each sample to each cluster centroid.
         """
 
-        return self.kmeans_.transform(X.T)
+        return self.kmeans_.transform(X)
