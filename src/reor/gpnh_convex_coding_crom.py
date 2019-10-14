@@ -347,8 +347,6 @@ class GPNHConvexCodingCROM(GPNHConvexCoding):
         """
 
         super().fit_transform(data, **kwargs)
-
-        self._initialize_parameters_workspace()
         self._fit_parameters()
 
         return self.Gamma
