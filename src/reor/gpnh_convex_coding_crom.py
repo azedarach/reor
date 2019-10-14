@@ -82,7 +82,7 @@ class GPNHConvexCodingCROM(GPNHConvexCoding):
         n_lags = self.lags.size
         self.order_weights = np.empty((n_lags,), dtype='f8')
         self.transition_matrices = np.empty(
-            (n_lags, n_components, n_components), dtype='i8')
+            (n_lags, n_components, n_components), dtype='f8')
         self.Z = None
 
         self.order_weights_old = None
