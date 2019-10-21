@@ -23,9 +23,6 @@ from reor._validation import _check_unit_axis_sums, _check_array_shape
 
 INTEGER_TYPES = (numbers.Integral, np.integer)
 
-
-INTEGER_TYPES = (numbers.Integral, np.integer)
-
 INITIALIZATION_METHODS = (None, 'random', 'furthest_sum')
 
 
@@ -899,7 +896,7 @@ class MTDConvexCoding():
 
         Returns
         -------
-        weights : array-like, shape (n_samples, n_features)
+        weights : array-like, shape (n_samples, n_components)
             Representation of the data.
         """
 
