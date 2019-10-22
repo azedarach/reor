@@ -1,4 +1,4 @@
-cov"""
+"""
 Provides routines for FEM-BV-VARX clustering method.
 """
 
@@ -24,8 +24,6 @@ def _check_init_parameters(parameters, n_components, n_features,
 
     if n_external != 0 and 'B0' not in parameters:
         raise ValueError('Initial guess for parameter B0 missing in %s' % whom)
-
-    n_lags = lags.size
 
     _check_array_shape(parameters['mu'], (n_features,), whom)
 
@@ -81,18 +79,10 @@ class FEMBVVARX(FEMBV):
             if self.memory > 0:
                 for m in range(1, self.memory + 1):
                     self.residuals[i] -= np.dot(
-                        self.X[self.memory - m:-m], self.A[i, m].T)
+                        self.X[self.memory - m:-m], self.A[i, m - 1].T)
 
             if n_external > 0:
                 self.residuals[i] -= np.dot(self.u[self.memory:], self.B0[i].T)
-
-    def _evaluate_residuals(self):
-        n_samples, n_features = self.X.shape
-        max_lag = self.lags.max()
-        for i in range(self.n_components):
-            self.residuals[i] = (self.X[max_lag:].ravel() -
-                                 np.dot(self.ZtkI, self.beta[i])).reshape(
-                                     n_samples - max_lag, n_features)
 
     def _evaluate_distance_matrix(self):
         for i in range(self.n_components):
@@ -150,7 +140,7 @@ class FEMBVVARX(FEMBV):
 
             if n_external > 0:
                 self.B0 = np.zeros((self.n_components, n_features, n_external),
-                                  dtype=self.X.dtype)
+                                   dtype=self.X.dtype)
 
         self.stderr_mu = np.empty_like(self.mu)
 
@@ -178,8 +168,12 @@ class FEMBVVARX(FEMBV):
         for i in range(self.n_components):
             weights = np.diag(np.sqrt(self.Gamma[:, i]))
 
-            result = linear_varx_EGLS(self.X.T, x=self.u.T, p=self.memory,
-                                      weights=weights, include_intercept=True)
+            varx_kwargs = dict(p=self.memory, weights=weights,
+                               include_intercept=True)
+            if self.u is not None:
+                varx_kwargs['x'] = self.u.T
+
+            result = linear_varx_EGLS(self.X.T, **varx_kwargs)
 
             self.mu[i] = result['mu']
             self.stderr_mu[i] = result['stderr_mu']

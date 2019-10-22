@@ -62,7 +62,7 @@ def _linear_varx_leastsq_impl(Y, Z, R=None, r=None, W=None):
     if R is None and r is None:
         R = np.eye(n_parameters, dtype=Y.dtype)
         r = np.zeros(n_parameters, dtype=Y.dtype)
-    else:
+    elif ((R is None and r is not None) or (R is not None and r is None)):
         raise ValueError(
             'Either both or neither restriction parameters R and r'
             ' must be present')
@@ -133,10 +133,10 @@ def _linear_varx_EGLS_impl(Y, Z, R=None, r=None, W=None, ddof=None):
 
     n_parameters = n_features * Z.shape[0]
 
-    if R is None:
+    if R is None and r is None:
         R = np.eye(n_parameters, dtype=Y.dtype)
         r = np.zeros(n_parameters, dtype=Y.dtype)
-    else:
+    elif ((R is None and r is not None) or (R is not None and r is None)):
         raise ValueError(
             'Either both or neither restriction parameters R and r'
             ' must be present')

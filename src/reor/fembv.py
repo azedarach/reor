@@ -74,13 +74,16 @@ class FEMBV():
         self._evaluate_distance_matrix()
         return (self.Gamma * self.distance_matrix).sum()
 
+    def _has_max_tv_norm_constraint(self):
+        return self.max_tv_norm is not None and self.max_tv_norm >= 0
+
     def _initialize_constraints(self, n_samples):
 
         n_weight_parameters = self.n_components * n_samples
 
         self.bounds = n_weight_parameters * [(0.0, 1.0)]
 
-        if self.max_tv_norm is not None and self.max_tv_norm > 0:
+        if self._has_max_tv_norm_constraint():
             n_weight_parameters += self.n_components * (n_samples - 1)
             self.bounds += self.n_components * (n_samples - 1)  * [(0.0, None)]
 
@@ -93,7 +96,7 @@ class FEMBV():
             for t in range(n_samples):
                 self.A_eq[t, t * self.n_components:(t + 1) * self.n_components] = 1.0
 
-            if self.max_tv_norm is not None and self.max_tv_norm > 0:
+            if self._has_max_tv_norm_constraint():
                 n_ub_constraints = self.n_components * (2 * n_samples - 1)
                 self.A_ub = np.zeros((n_ub_constraints,
                                       n_weight_parameters),
@@ -125,13 +128,11 @@ class FEMBV():
                     self.A_ub[constraint_index, start_col_index::self.n_components] = 1
                     constraint_index += 1
 
-                self.b_ub = np.zeros((n_ub_constraints,), dtype=self.Gamma.type)
+                self.b_ub = np.zeros((n_ub_constraints,), dtype=self.Gamma.dtype)
                 self.b_ub[2 * self.n_components * (n_samples - 1):] = self.max_tv_norm
 
-    def _initialize_weights(self, data, n_samples, weights=None, init=None):
+    def _initialize_weights(self, unused_data, n_samples, weights=None, init=None):
         """Generate initial guess for component weights."""
-
-        n_samples = data.shape[0]
 
         if init == 'custom' and weights is not None:
             _check_init_weights(weights, (n_samples, self.n_components),
@@ -142,9 +143,10 @@ class FEMBV():
                 n_samples, n_components=self.n_components, unused_init=init,
                 random_state=self.random_state)
 
-        self.Eta = np.empty(self.Gamma.shape, dtype=self.Gamma.dtype)
+        if self._has_max_tv_norm_constraint():
+            self.Eta = np.empty(self.Gamma.shape, dtype=self.Gamma.dtype)
 
-        self._initialize_constraints(data)
+        self._initialize_constraints(n_samples)
 
     def _initialize_components(self, data, parameters=None, init=None, **kwargs):
         """Generate initial guess for component parameters."""
@@ -177,7 +179,7 @@ class FEMBV():
 
         assert self.distance_matrix.shape == (n_samples, self.n_components)
 
-        self.c = self.distance_matrix.ravel()
+        self.c[:self.Gamma.size] = self.distance_matrix.ravel()
 
         if self.verbose > 1:
             options = dict(disp=True)
@@ -185,7 +187,7 @@ class FEMBV():
             options = dict(disp=False)
 
         sol = linprog(self.c, A_ub=self.A_ub, b_ub=self.b_ub,
-                      A_eq=self.A_eq, b_eq=self.A_eq, bounds=self.bounds,
+                      A_eq=self.A_eq, b_eq=self.b_eq, bounds=self.bounds,
                       method=self.linprog_method, options=options)
 
         if not sol['success']:
@@ -194,8 +196,10 @@ class FEMBV():
         else:
             self.Gamma = sol['x'][:self.n_components * n_samples].reshape(
                 (n_samples, self.n_components))
-            self.Eta = sol['x'][self.n_components * n_samples].reshape(
-                (n_samples - 1, self.n_components))
+
+            if self._has_max_tv_norm_constraint():
+                self.Eta = sol['x'][self.n_components * n_samples:].reshape(
+                    (n_samples - 1, self.n_components))
 
     def _update_parameters(self):
         """Update cost function parameters."""
