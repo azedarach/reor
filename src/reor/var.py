@@ -254,8 +254,8 @@ def linear_varx_leastsq(y, x=None, p=1, s=0, weights=None,
         Array containing the estimated residual covariances.
     """
 
-    if not isinstance(p, INTEGER_TYPES) or p < 1:
-        raise ValueError('Lag order must be a positive integer;'
+    if not isinstance(p, INTEGER_TYPES) or p < 0:
+        raise ValueError('Lag order must be a non-negative integer;'
                          ' got (p=%r)' % p)
     if not isinstance(s, INTEGER_TYPES) or s < 0:
         raise ValueError('External lag order must be a non-negative integer;'
@@ -293,7 +293,7 @@ def linear_varx_leastsq(y, x=None, p=1, s=0, weights=None,
     if weights is None:
         W = np.eye(n_samples - presample_length, dtype=y.dtype)
     else:
-        W = np.diag(weights)
+        W = np.diag(weights[presample_length:])
 
     # Perform simple least-squares estimation
     gamma_LS, Sigma_LS = _linear_varx_leastsq_impl(Y, Z, R=None, r=None, W=W)
@@ -373,45 +373,47 @@ def linear_varx_EGLS(y, x=None, p=1, s=0, weights=None,
 
     Returns
     -------
-    mu : scalar or array-like, shape (n_features,)
+    A dictionary containing the following fields:
+
+    'mu' : scalar or array-like, shape (n_features,)
         Array containing the fitted intercepts.
 
-    A : array-like, shape (p,) or (p, n_features, n_features)
+    'A' : array-like, shape (p,) or (p, n_features, n_features)
         Array containing the values of the autoregressive coefficients.
 
-    B : array-like, shape (s,) or (s, n_features, n_external)
+    'B' : array-like, shape (s,) or (s, n_features, n_external)
         Array containing the values of the lagged external factor coefficients.
 
-    B0 : array-like, shape (n_features, n_external)
+    'B0' : array-like, shape (n_features, n_external)
         Array containing the values of the instantaneous external factor
         coefficients.
 
-    Sigma_LS : array-like, shape (n_features, n_features)
+    'Sigma_LS' : array-like, shape (n_features, n_features)
         Array containing the estimated residual covariances.
 
-    stderr_mu : scalar or array-like, shape (n_features,)
+    'stderr_mu' : scalar or array-like, shape (n_features,)
         Array containing the estimated standard error of the intercept.
 
-    stderr_A : array-like, shape (p,) or (p, n_features, n_features)
+    'stderr_A' : array-like, shape (p,) or (p, n_features, n_features)
         Array containing the estimated standard error of the autoregressive
         coefficients.
 
-    stderr_B : array-like, shape (s,) or (s, n_features, n_external)
+    'stderr_B' : array-like, shape (s,) or (s, n_features, n_external)
         Array containing the estimated standard error of the lagged external
         factor coefficients.
 
-    stderr_B0 : array-like, shape (n_features, n_external)
+    'stderr_B0' : array-like, shape (n_features, n_external)
         Array containing the estimated standard error of the lagged
         instantaneous external factor coefficients.
 
-    cov_params : array-like, shape (n_parameters, n_parameters)
+    'cov_params' : array-like, shape (n_parameters, n_parameters)
         Array containing estimated covariances of model parameters,
         where the parameters are assumed to be stacked column-wise
         into a single vector.
     """
 
-    if not isinstance(p, INTEGER_TYPES) or p < 1:
-        raise ValueError('Lag order must be a positive integer;'
+    if not isinstance(p, INTEGER_TYPES) or p < 0:
+        raise ValueError('Lag order must be a non-negative integer;'
                          ' got (p=%r)' % p)
     if not isinstance(s, INTEGER_TYPES) or s < 0:
         raise ValueError('External lag order must be a non-negative integer;'
@@ -449,7 +451,7 @@ def linear_varx_EGLS(y, x=None, p=1, s=0, weights=None,
     if weights is None:
         W = np.eye(n_samples - presample_length, dtype=y.dtype)
     else:
-        W = np.diag(weights)
+        W = np.diag(weights[presample_length:])
 
     # Perform simple least-squares estimation
     if not bias:
@@ -541,6 +543,9 @@ def linear_varx_EGLS(y, x=None, p=1, s=0, weights=None,
                     B = np.squeeze(B)
                     stderr_B = np.squeeze(stderr_B)
 
-    return (mu, A, B, B0,
-            stderr_mu, stderr_A, stderr_B, stderr_B0,
-            Sigma_LS, cov_gamma_EGLS)
+    return dict(
+        mu=mu, A=A, B=B, B0=B0,
+        stderr_mu=stderr_mu, stderr_A=stderr_A,
+        stderr_B=stderr_B, stderr_B0=stderr_B0,
+        Sigma_LS=Sigma_LS,
+        cov_gamma_EGLS=cov_gamma_EGLS)
