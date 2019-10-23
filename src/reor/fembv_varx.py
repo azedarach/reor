@@ -167,7 +167,8 @@ class FEMBVVARX(FEMBV):
             n_external = 0
 
         for i in range(self.n_components):
-            weights = np.diag(np.sqrt(self.Gamma[:, i]))
+            weights = np.ones((self.X.shape[0],))
+            weights[self.memory:] = np.sqrt(self.Gamma[:, i])
 
             varx_kwargs = dict(p=self.memory, weights=weights,
                                include_intercept=True)

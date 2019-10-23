@@ -143,7 +143,6 @@ def _linear_varx_EGLS_impl(Y, Z, R=None, r=None, W=None, ddof=None):
 
     # Obtain covariance estimate by initial least-squares fit
     gamma_LS, Sigma_LS = _linear_varx_leastsq_impl(Y, Z=Z, R=R, r=r, W=W)
-
     if ddof is not None:
         Sigma_LS *= n_samples / ddof
 
