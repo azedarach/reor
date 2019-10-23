@@ -54,6 +54,7 @@ class FEMBV():
         self.random_state = check_random_state(random_state)
         self.require_monotonic_cost_decrease = kwargs.get(
             'require_monotonic_cost_decrease', True)
+        self.name = 'Generic FEM-BV'
 
         self.Gamma = None
         self.Eta = None
@@ -209,8 +210,8 @@ class FEMBV():
         """Minimize cost function iteratively."""
 
         if self.verbose:
-            print('*** FEM-BV-VARX: n_components = {:d} ***'.format(
-                self.Gamma.shape[1]))
+            print('*** {}: n_components = {:d} ***'.format(
+                self.name, self.Gamma.shape[1]))
             print('{:<12s} | {:<13s} | {:<13s} | {:<12s}'.format(
                 'Iteration', 'Cost', 'Cost delta', 'Time'))
             print(60 * '-')

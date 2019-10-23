@@ -57,6 +57,7 @@ class FEMBVVARX(FEMBV):
 
             self.memory = memory
 
+        self.name = 'FEM-BV-VARX'
         self.X = None
         self.u = None
 
@@ -121,7 +122,7 @@ class FEMBVVARX(FEMBV):
                 parameters, n_components=self.n_components,
                 n_features=n_features, n_external=n_external,
                 memory=self.memory,
-                whom='_initialize_parameters (input parameters)')
+                whom='_initialize_components (input parameters)')
 
             self.mu = parameters['mu'].copy()
 
