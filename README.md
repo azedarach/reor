@@ -30,3 +30,18 @@ to be installed.
 To install from source, run:
 
     python setup.py install
+
+For example, if installing into a custom conda environment, first create
+the environment via
+
+    conda create -n reor-env python=3.6
+    conda activate reor-env
+
+The package may then be installed using
+
+    cd /path/to/reor/directory
+    python setup.py install
+
+Optionally, a set of unit tests may be run by executing
+
+    python setup.py test
