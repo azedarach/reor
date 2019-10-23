@@ -209,7 +209,8 @@ class FEMBV():
 
         assert self.distance_matrix.shape == (n_samples, self.n_components)
 
-        self.c[:self.Gamma.size] = self.distance_matrix.ravel()
+        # cvxopt requires double type matrix
+        self.c[:self.Gamma.size] = self.distance_matrix.ravel().astype('float64')
 
         if 'show_progress' in cs.options:
             old_show_progress = cs.options['show_progress']
