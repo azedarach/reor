@@ -10,8 +10,8 @@ import time
 import warnings
 import numpy as np
 
-
-from scipy.optimize import linprog
+from cvxopt import matrix, spmatrix
+import cvxopt.solvers as cs
 from sklearn.utils import check_array, check_random_state
 
 from reor._random_matrix import right_stochastic_matrix
@@ -66,7 +66,6 @@ class FEMBV():
         self.A_ub = None
         self.b_ub = None
         self.bounds = None
-        self.linprog_method = 'interior-point'
 
     def _evaluate_distance_matrix(self):
         raise NotImplementedError()
@@ -82,55 +81,85 @@ class FEMBV():
 
         n_weight_parameters = self.n_components * n_samples
 
-        self.bounds = n_weight_parameters * [(0.0, 1.0)]
-
         if self._has_max_tv_norm_constraint():
             n_weight_parameters += self.n_components * (n_samples - 1)
-            self.bounds += self.n_components * (n_samples - 1)  * [(0.0, None)]
 
-        self.c = np.zeros((n_weight_parameters,), dtype=self.Gamma.dtype)
+        self.c = matrix(0.0, size=(n_weight_parameters, 1), tc='d')
 
         if self.n_components > 1:
-            self.A_eq = np.zeros((n_samples, n_weight_parameters),
+            eq_nnz_rows = np.repeat(np.arange(n_samples), self.n_components)
+            eq_nnz_cols = np.arange(n_samples * self.n_components)
+            self.A_eq = spmatrix(1.0, eq_nnz_rows, eq_nnz_cols,
+                                 size=(n_samples, n_weight_parameters), tc='d')
+            self.b_eq = matrix(1.0, size=(n_samples, 1), tc='d')
+
+            # Number of non-negativity constraints
+            n_non_neg_constraints = n_weight_parameters
+            n_ub_constraints = n_non_neg_constraints
+
+            # Non-negativity constraints on weight parameters
+            nnz_coeffs = np.full((n_weight_parameters,), -1,
                                  dtype=self.Gamma.dtype)
-            self.b_eq = np.ones((n_samples,), dtype=self.Gamma.dtype)
-            for t in range(n_samples):
-                self.A_eq[t, t * self.n_components:(t + 1) * self.n_components] = 1.0
+            ub_nnz_rows = np.arange(n_weight_parameters)
+            ub_nnz_cols = np.arange(n_weight_parameters)
+            ub_values = np.zeros((n_weight_parameters,), dtype=self.Gamma.dtype)
 
             if self._has_max_tv_norm_constraint():
-                n_ub_constraints = self.n_components * (2 * n_samples - 1)
-                self.A_ub = np.zeros((n_ub_constraints,
-                                      n_weight_parameters),
-                                     dtype=self.Gamma.dtype)
+                # Number of auxiliary constraints
+                n_aux_constraints = 2 * self.n_components * (n_samples - 1)
 
-                constraint_index = 0
-                auxiliary_offset = self.n_components * n_samples
-                for t in range(n_samples - 1):
-                    for i in range(self.n_components):
-                        gamma_tp1_index = (t + 1) * self.n_components + i
-                        gamma_t_index = t * self.n_components + i
-                        auxiliary_index = (auxiliary_offset +
-                                           t * self.n_components + i)
+                nnz_aux_rows = np.repeat(
+                    np.arange(n_ub_constraints,
+                              n_ub_constraints + n_aux_constraints), 3)
+                nnz_aux_cols = np.tile(np.array(
+                    [[(t + 1) * self.n_components + i,
+                      t * self.n_components + i,
+                      self.n_components * n_samples + t * self.n_components + i]
+                     for t in range(n_samples - 1)
+                     for i in range(self.n_components)]).ravel(), 2)
+                nnz_aux_coeffs = np.concatenate(
+                    [np.tile(np.array([1.0, -1.0, -1.0]),
+                             self.n_components * (n_samples - 1)),
+                     np.tile(np.array([-1.0, 1.0, -1.0]),
+                             self.n_components * (n_samples - 1))])
 
-                        self.A_ub[constraint_index, gamma_tp1_index] = 1.0
-                        self.A_ub[constraint_index, gamma_t_index] = -1.0
-                        self.A_ub[constraint_index, auxiliary_index] = -1.0
-                        constraint_index += 1
+                n_ub_constraints += n_aux_constraints
+                ub_values = np.concatenate(
+                    [ub_values,
+                     np.zeros((2 * self.n_components * (n_samples -1),))])
 
-                        self.A_ub[constraint_index, gamma_tp1_index] = -1.0
-                        self.A_ub[constraint_index, gamma_t_index] = 1.0
-                        self.A_ub[constraint_index, auxiliary_index] = -1.0
-                        constraint_index += 1
+                # Number of total variation norm constraints
+                n_tv_constraints = self.n_components
 
-                assert constraint_index == 2 * self.n_components * (n_samples - 1)
+                nnz_tv_rows = np.repeat(
+                    np.arange(n_ub_constraints,
+                              n_ub_constraints + n_tv_constraints),
+                    n_samples - 1)
+                nnz_tv_cols = np.concatenate(
+                    [np.array(
+                        [self.n_components * n_samples + t * self.n_components + i
+                         for t in range(n_samples - 1)])
+                     for i in range(self.n_components)])
+                nnz_tv_coeffs = np.ones((self.n_components * (n_samples - 1),),
+                                        dtype=self.Gamma.dtype)
 
-                for i in range(self.n_components):
-                    start_col_index = (self.n_components * n_samples + i)
-                    self.A_ub[constraint_index, start_col_index::self.n_components] = 1
-                    constraint_index += 1
+                n_ub_constraints += n_tv_constraints
 
-                self.b_ub = np.zeros((n_ub_constraints,), dtype=self.Gamma.dtype)
-                self.b_ub[2 * self.n_components * (n_samples - 1):] = self.max_tv_norm
+                ub_values = np.concatenate(
+                    [ub_values,
+                     np.full((self.n_components,), self.max_tv_norm)])
+
+                nnz_coeffs = np.concatenate(
+                    [nnz_coeffs, nnz_aux_coeffs, nnz_tv_coeffs])
+                ub_nnz_rows = np.concatenate(
+                    [ub_nnz_rows, nnz_aux_rows, nnz_tv_rows])
+                ub_nnz_cols = np.concatenate(
+                    [ub_nnz_cols, nnz_aux_cols, nnz_tv_cols])
+
+            self.A_ub = spmatrix(
+                nnz_coeffs, ub_nnz_rows, ub_nnz_cols,
+                size=(n_ub_constraints, n_weight_parameters), tc='d')
+            self.b_ub = matrix(ub_values, size=(n_ub_constraints, 1), tc='d')
 
     def _initialize_weights(self, unused_data, n_samples, weights=None, init=None):
         """Generate initial guess for component weights."""
@@ -182,24 +211,31 @@ class FEMBV():
 
         self.c[:self.Gamma.size] = self.distance_matrix.ravel()
 
+        if 'show_progress' in cs.options:
+            old_show_progress = cs.options['show_progress']
+        else:
+            old_show_progress = True
+
         if self.verbose > 1:
-            options = dict(disp=True)
+            cs.options['show_progress'] = True
         else:
-            options = dict(disp=False)
+            cs.options['show_progress'] = False
 
-        sol = linprog(self.c, A_ub=self.A_ub, b_ub=self.b_ub,
-                      A_eq=self.A_eq, b_eq=self.b_eq, bounds=self.bounds,
-                      method=self.linprog_method, options=options)
+        sol = cs.lp(self.c, G=self.A_ub, h=self.b_ub,
+                    A=self.A_eq, b=self.b_eq)
 
-        if not sol['success']:
-            warnings.warn('Updating weights failed',
-                          UserWarning)
+        cs.options['show_progress'] = old_show_progress
+
+        if sol['status'] != 'optimal':
+            warnings.warn('Updating weights failed', UserWarning)
         else:
-            self.Gamma = sol['x'][:self.n_components * n_samples].reshape(
+            self.Gamma = np.reshape(
+                sol['x'][:self.n_components * n_samples],
                 (n_samples, self.n_components))
 
             if self._has_max_tv_norm_constraint():
-                self.Eta = sol['x'][self.n_components * n_samples:].reshape(
+                self.Eta = np.reshape(
+                    sol['x'][self.n_components * n_samples:],
                     (n_samples - 1, self.n_components))
 
     def _update_parameters(self):

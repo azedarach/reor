@@ -8,7 +8,7 @@ setup(
     author_email='Dylan.Harries@csiro.au',
     description='Experiments with dimension reduction',
     long_description='',
-    install_requires=['numpy', 'scikit-learn', 'scipy'],
+    install_requires=['cvxopt', 'numpy', 'scikit-learn', 'scipy'],
     packages=find_packages('src'),
     package_dir={'':'src'},
     test_suite='tests',

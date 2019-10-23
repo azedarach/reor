@@ -169,6 +169,8 @@ def parse_cmd_line_args():
                         help='number of switches in hidden state')
     parser.add_argument('--n-components', dest='n_components', type=int, default=3,
                         help='number of FEM-BV clusters')
+    parser.add_argument('--max-tv-norm', dest='max_tv_norm', type=float,
+                        default=None, help='maximum TV norm')
     parser.add_argument('--n-init', dest='n_init', type=int, default=10,
                         help='number of random initializations to use')
     parser.add_argument('--tolerance', dest='tolerance', type=float, default=1e-4,
@@ -191,6 +193,9 @@ def parse_cmd_line_args():
     if args.n_components < 1:
         raise ValueError('Number of components must be a positive integer')
 
+    if args.max_tv_norm is not None and args.max_tv_norm < 0:
+        raise ValueError('Maximum TV norm must be non-negative')
+
     if args.n_init < 1:
         raise ValueError('Number of initializations must be a positive integer')
 
@@ -212,6 +217,7 @@ def main():
     n_switches = args.n_switches
     n_components = args.n_components
     n_init = args.n_init
+    max_tv_norm = args.max_tv_norm
 
     random_state = check_random_state(args.random_seed)
 
@@ -221,7 +227,7 @@ def main():
     kmeans_centroids, kmeans_labels = run_kmeans(
         X, n_clusters=N_CLUSTERS, n_init=n_init)
     model, weights = fit_fembv_kmeans(
-        X, n_components=n_components, max_tv_norm=n_switches,
+        X, n_components=n_components, max_tv_norm=max_tv_norm,
         n_init=n_init, tolerance=args.tolerance,
         max_iterations=args.max_iterations, verbose=args.verbose)
 
