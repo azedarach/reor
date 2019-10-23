@@ -263,16 +263,24 @@ class FEMBV():
             if update_parameters:
                 self._update_parameters()
                 new_cost = self._evaluate_cost()
-                if (new_cost > old_cost) and self.require_monotonic_cost_decrease:
-                    raise RuntimeError(
-                        'cost increased after parameters update')
+
+                if self.require_monotonic_cost_decrease:
+                    update_failed = (new_cost > old_cost and
+                                     abs(new_cost > old_cost) > self.tolerance)
+                    if update_failed:
+                        raise RuntimeError(
+                            'cost increased after parameters update')
 
             if update_weights:
                 self._update_weights()
                 new_cost = self._evaluate_cost()
-                if (new_cost > old_cost) and self.require_monotonic_cost_decrease:
-                    raise RuntimeError(
-                        'cost increased after weights update')
+
+                if self.require_monotonic_cost_decrease:
+                    update_failed = (new_cost > old_cost and
+                                     abs(new_cost > old_cost) > self.tolerance)
+                    if update_failed:
+                        raise RuntimeError(
+                            'cost increased after weights update')
 
             cost_delta = new_cost - old_cost
 
