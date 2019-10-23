@@ -53,7 +53,7 @@ class FEMBV():
         self.verbose = verbose
         self.random_state = check_random_state(random_state)
         self.require_monotonic_cost_decrease = kwargs.get(
-            'require_monotonic_cost_decrease', True)
+            'require_monotonic_cost_decrease', False)
         self.name = 'Generic FEM-BV'
 
         self.Gamma = None
@@ -263,7 +263,6 @@ class FEMBV():
             if update_parameters:
                 self._update_parameters()
                 new_cost = self._evaluate_cost()
-
                 if self.require_monotonic_cost_decrease:
                     update_failed = (new_cost > old_cost and
                                      abs(new_cost > old_cost) > self.tolerance)
@@ -274,7 +273,6 @@ class FEMBV():
             if update_weights:
                 self._update_weights()
                 new_cost = self._evaluate_cost()
-
                 if self.require_monotonic_cost_decrease:
                     update_failed = (new_cost > old_cost and
                                      abs(new_cost > old_cost) > self.tolerance)
