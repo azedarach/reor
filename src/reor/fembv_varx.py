@@ -141,7 +141,7 @@ class FEMBVVARX(FEMBV):
 
     References
     ----------
-    P. Metzner, L. PUtzig, and I. Horenko, "Analysis of Persistent and
+    P. Metzner, L. Putzig, and I. Horenko, "Analysis of Persistent and
     Nonstationary Time Series and Applications", Commun. Appl. Math. Comput.
     Sci. 7, 2 (2012), 175 - 229
     """
