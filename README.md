@@ -12,9 +12,10 @@ constructing reduced order models.
 The following packages are required:
 
   - Python (>= 3.6)
-  - NumPy (>= 1.16.2)
-  - SciPy (>= 1.2.1)
-  - scikit-learn (>= 0.20.3)
+  - NumPy
+  - SciPy
+  - scikit-learn
+  - cvxopt
 
 To build from source, the following additional packages
 are required:
