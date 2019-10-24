@@ -264,6 +264,7 @@ class FEMBVVARX(FEMBV):
             self.Sigma_inv[i] = np.eye(n_features)
 
         self._evaluate_residuals()
+        self._evaluate_distance_matrix()
 
     def _update_parameters(self):
         """Update component parameters."""
