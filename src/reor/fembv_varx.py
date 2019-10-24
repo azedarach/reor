@@ -177,6 +177,8 @@ class FEMBVVARX(FEMBV):
         self.Sigma_inv = None
 
         self.residuals = None
+        self.use_least_squares_cost = kwargs.get(
+            'use_least_squares_cost', False)
 
     def _evaluate_residuals(self):
         n_external = 0 if self.u is None else self.u.shape[1]
@@ -194,8 +196,13 @@ class FEMBVVARX(FEMBV):
 
     def _evaluate_distance_matrix(self):
         for i in range(self.n_components):
+            if self.use_least_squares_cost:
+                metric = np.eye(n_features)
+            else:
+                metric = self.Sigma_inv[i]
+
             self.distance_matrix[:, i] = np.einsum(
-                'ij,jk,ik->i', self.residuals[i], self.Sigma_inv[i],
+                'ij,jk,ik->i', self.residuals[i], metric,
                 self.residuals[i])
 
     def _initialize_components(self, data, parameters=None, init=None, **kwargs):
