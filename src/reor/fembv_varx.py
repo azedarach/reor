@@ -5,35 +5,139 @@ Provides routines for FEM-BV-VARX clustering method.
 import numbers
 import numpy as np
 
+from sklearn.utils.validation import check_array
+
 from reor.fembv import FEMBV
-from reor.var import linear_varx_EGLS
 from reor._validation import _check_array_shape
 
 
 INTEGER_TYPES = (numbers.Integral, np.integer)
 
 
-def _check_init_parameters(parameters, n_components, n_features,
-                           n_external, memory, whom):
+class FEMBVVARXLocalLinearModel():
+    """Local stationary linear VARX model."""
 
-    if 'mu' not in parameters:
-        raise ValueError('Initial guess for parameter mu missing in %s' % whom)
+    def __init__(self, y, p=0, u=None, s=0):
+        if not isinstance(p, INTEGER_TYPES) or p < 0:
+            raise ValueError('VAR order must be a non-negative integer')
 
-    if memory > 0 and 'A' not in parameters:
-        raise ValueError('Initial guess for parameter A missing in %s' % whom)
+        self.p = p
 
-    if n_external != 0 and 'B0' not in parameters:
-        raise ValueError('Initial guess for parameter B0 missing in %s' % whom)
+        self._y = check_array(y)
 
-    _check_array_shape(parameters['mu'], (n_features,), whom)
+        n_samples, n_features = self._y.shape
 
-    if memory > 0:
-        _check_array_shape(parameters['A'],
-                           (n_components, memory, n_features, n_features), whom)
+        self.mu = np.zeros((n_features,), dtype=self._y.dtype)
+        self.Sigma_u = np.zeros((n_features, n_features), dtype=self._y.dtype)
 
-    if n_external != 0:
-        _check_array_shape(parameters['B0'],
-                           (n_components, n_features, n_external), whom)
+        if p > 0:
+            self.A = np.zeros((self.p, n_features, n_features),
+                              dtype=self._y.dtype)
+        else:
+            self.A = None
+
+        if u is not None:
+            self._u = check_array(u)
+
+            if self._u.shape[0] != n_samples:
+                raise ValueError(
+                    'Number of exogeneous factor samples does not match '
+                    'number of endogeneous samples')
+
+            n_exog = self._u.shape[1]
+
+            self.B0 = np.zeros((n_features, n_external), dtype=self._y.dtype)
+
+            if not isinstance(s, INTEGER_TYPES) or s < 0:
+                raise ValueError(
+                    'Exogeneous VAR order must be a non-negative integer')
+
+            self.s = s
+
+            if self.s > 0:
+                self.B = np.zeros((self.s, n_features, n_external),
+                                  dtype=self._y.dtype)
+            else:
+                self.B = None
+        else:
+            n_exog = 0
+            self.s = 0
+            self._u = None
+            self.B0 = None
+            self.B = None
+
+        presample_length = max(self.p, self.s)
+
+        n_cols = 1 + self.p * n_features + n_exog * (1 + self.s)
+        self._z = np.empty((n_samples - presample_length, n_cols),
+                           dtype=self._y.dtype)
+        self._z[:, 0] = 1.0
+
+        col_index = 1
+        if self.p > 0:
+            for i in range(1, self.p + 1):
+                self._z[:, col_index:col_index + n_features] = self._y[presample_length - i:-i]
+                col_index += n_features
+
+        if self._u is not None:
+            if self.s > 0:
+                for i in range(1, self.s + 1):
+                    self._z[:, col_index:col_index + n_exog] = self._u[presample_length - i:-i]
+                    col_index += n_exog
+
+            self._z[:, col_index:col_index + n_exog] = self._u[presample_length:]
+
+        self.residuals = np.zeros_like(self._y)
+
+    def fit(self, weights=None):
+        n_samples, n_features = self._y.shape
+
+        presample_length = max(self.p, self.s)
+
+        if weights is None:
+            params = np.linalg.lstsq(
+                self._z, self._y[presample_length:], rcond=None)[0]
+        else:
+            if weights.shape != (n_samples,):
+                raise ValueError('Number of weights does not match '
+                                 'number of samples')
+
+            w = np.sqrt(weights[presample_length:])
+
+            params = np.linalg.lstsq(
+                w[:, np.newaxis] * self._z,
+                w[:, np.newaxis] * self._y[presample_length:],
+                rcond=None)[0]
+
+        self.residuals[presample_length:] = (
+            self._y[presample_length:] - np.dot(self._z, params))
+
+        self.mu = params[0]
+
+        if self.p > 0:
+            A = np.reshape(params[1:1 + n_features * self.p],
+                           (self.p, n_features, n_features))
+            self.A = A.swapaxes(1, 2).copy()
+
+        if self._u is not None:
+            n_exog = self._u.shape[1]
+            if self.s > 0:
+                row_start = 1 + n_features * self.p
+                row_end = row_start + self.s * n_exog
+                B = np.reshape(
+                    params[row_start:row_end],
+                    (self.s, n_exog, n_features))
+                self.B = B.swapaxes(1, 2).copy()
+
+            row_start = 1 + n_features * self.p + self.s * n_exog
+            self.B0 = params[row_start:].swapaxes(1, 2).copy()
+
+        df = n_samples - presample_length - self.p * n_features - 1
+        if self._u is not None:
+            df -= self._u.shape[1] * (1 + self.s)
+
+        self.Sigma_u = np.dot(self.residuals[presample_length:].T,
+                             self.residuals[presample_length:]) / df
 
 
 class FEMBVVARX(FEMBV):
@@ -102,26 +206,13 @@ class FEMBVVARX(FEMBV):
     mu : array-like, shape (n_components, n_features)
         The fitted intercepts for each component.
 
-    stderr_mu : array-like, shape (n_components, n_features)
-        The estimated asymptotic standard errors for the fitted intercepts
-        for each component.
-
     A : array-like, shape (n_components, memory, n_features, n_features)
         The fitted autoregressive coefficients for each component.
-
-    stderr_A : array-like, shape (n_components, memory, n_features, n_features)
-        The estimated asymptotic standard errors for the fitted autoregressive
-        coefficients for each component.
 
     B0 : array-like, shape (n_components, n_features, n_external)
         If external factors are included, the fitted external factor
         coefficients for each component. If no exogeneous factors are present,
         is None.
-
-    stderr_B0 : array-like, shape (n_components, n_features, n_external)
-        If external factors are included, the estimated asymptotic standard
-        errors for the fitted external coefficients for each component. If
-        no exogeneous factors are present, is None.
 
     cost_ : number
         Value of the cost function for the obtained clustering.
@@ -155,55 +246,38 @@ class FEMBVVARX(FEMBV):
                          random_state=random_state, **kwargs)
 
         if memory is None:
-            self.memory = 0
+            self.memory = np.full((n_components,), 0, dtype='i8')
         else:
-            if not isinstance(memory, INTEGER_TYPES) or memory < 0:
-                raise ValueError(
-                    'Memory must be a non-negative integer;'
-                    ' got (memory=%d)' % memory)
+            if isinstance(memory, INTEGER_TYPES):
+                if memory < 0:
+                    raise ValueError(
+                        'Maximum memory must be a non-negative integer;'
+                        ' got (memory=%d)' % memory)
 
-            self.memory = memory
+                self.memory = np.full((n_components,), memory, dtype='i8')
+            elif isinstance(memory, (list, tuple)):
+                self.memory = np.asarray(memory, dtype='i8')
+                if self.memory.shape != (n_components,):
+                    raise ValueError('Memory must be a 1-dimensional array; '
+                                     'got shape %r' % list(self.memory.shape))
+            else:
+                raise ValueError(
+                    'Memory must be a non-negative integer or tuple; '
+                    ' got %r' % type(memory))
 
         self.name = 'FEM-BV-VARX'
         self.X = None
         self.u = None
 
+        self.models = None
         self.mu = None
-        self.stderr_mu = None
         self.A = None
-        self.stderr_A = None
         self.B0 = None
-        self.stderr_B0 = None
-        self.Sigma_inv = None
-
-        self.residuals = None
-        self.use_least_squares_cost = kwargs.get(
-            'use_least_squares_cost', False)
-
-    def _evaluate_residuals(self):
-        n_external = 0 if self.u is None else self.u.shape[1]
-
-        for i in range(self.n_components):
-            self.residuals[i] = self.X[self.memory:, :] - self.mu[i]
-
-            if self.memory > 0:
-                for m in range(1, self.memory + 1):
-                    self.residuals[i] -= np.dot(
-                        self.X[self.memory - m:-m], self.A[i, m - 1].T)
-
-            if n_external > 0:
-                self.residuals[i] -= np.dot(self.u[self.memory:], self.B0[i].T)
 
     def _evaluate_distance_matrix(self):
         for i in range(self.n_components):
-            if self.use_least_squares_cost:
-                metric = np.eye(n_features)
-            else:
-                metric = self.Sigma_inv[i]
-
-            self.distance_matrix[:, i] = np.einsum(
-                'ij,jk,ik->i', self.residuals[i], metric,
-                self.residuals[i])
+            self.distance_matrix[: , i] = np.sum(
+                self.models[i].residuals[self.memory[i]:] ** 2, axis=1)
 
     def _initialize_components(self, data, parameters=None, init=None, **kwargs):
         """Generate initial guess for component parameters."""
@@ -225,84 +299,53 @@ class FEMBVVARX(FEMBV):
         else:
             n_external = 0
 
+        presample_length = np.max(self.memory)
+
+        self.mu = np.zeros((self.n_components, n_features),
+                           dtype=self.X.dtype)
+        if presample_length > 0:
+            self.A = np.zeros((self.n_components, presample_length,
+                               n_features, n_features),
+                              dtype=self.X.dtype)
+        if self.u is not None:
+            self.B0 = np.zeros((self.n_components, n_features, n_external),
+                               dtype=self.X.dtype)
+
+        self.models = [FEMBVVARXLocalLinearModel(
+            self.X[presample_length - self.memory[i]:],
+            p=self.memory[i],
+            u=self.u, s=0)
+            for i in range(self.n_components)]
+
+        # Initialize models by performing unweighted fits to
+        # given data
+        for i in range(n_components):
+            self.models[i].fit()
+
         self.distance_matrix = np.empty(
-            (n_samples - self.memory, self.n_components), dtype=self.X.dtype)
-        self.residuals = np.empty(
-            (self.n_components, n_samples - self.memory, n_features),
+            (n_samples - presample_length, self.n_components),
             dtype=self.X.dtype)
 
-        if init == 'custom' and parameters is not None:
-            _check_init_parameters(
-                parameters, n_components=self.n_components,
-                n_features=n_features, n_external=n_external,
-                memory=self.memory,
-                whom='_initialize_components (input parameters)')
-
-            self.mu = parameters['mu'].copy()
-
-            if self.memory > 0:
-                self.A = parameters['A'].copy()
-
-            if n_external > 0:
-                self.B0 = parameters['B0'].copy()
-        else:
-            self.mu = np.zeros((self.n_components, n_features,),
-                               dtype=self.X.dtype)
-            if self.memory > 0:
-                self.A = np.zeros(
-                    (self.n_components, self.memory, n_features, n_features),
-                    dtype=self.X.dtype)
-
-            if n_external > 0:
-                self.B0 = np.zeros((self.n_components, n_features, n_external),
-                                   dtype=self.X.dtype)
-
-        self.stderr_mu = np.empty_like(self.mu)
-
-        if self.memory > 0:
-            self.stderr_A = np.empty_like(self.A)
-
-        if n_external > 0:
-            self.stderr_B0 = np.empty_like(self.stderr_B0)
-
-        self.Sigma_inv = np.empty((self.n_components, n_features, n_features),
-                                  dtype=self.X.dtype)
-        for i in range(self.n_components):
-            self.Sigma_inv[i] = np.eye(n_features)
-
-        self._evaluate_residuals()
         self._evaluate_distance_matrix()
 
     def _update_parameters(self):
         """Update component parameters."""
 
-        if self.u is not None:
-            n_external = self.u.shape[1]
-        else:
-            n_external = 0
+        n_samples, n_features = self.X.shape
 
+        presample_length = np.max(self.memory)
         for i in range(self.n_components):
-            weights = np.ones((self.X.shape[0],))
-            weights[self.memory:] = np.sqrt(self.Gamma[:, i])
+            weights = np.ones(
+                (n_samples - presample_length + self.memory[i],),
+                dtype=self.X.dtype)
+            weights[self.memory[i]:] = self.Gamma[:, i]
 
-            varx_kwargs = dict(p=self.memory, weights=weights,
-                               include_intercept=True)
+            self.models[i].fit(weights=weights)
+
+            self.mu[i] = self.models[i].mu
+
+            if self.memory[i] > 0:
+                self.A[i, :self.memory[i]] = self.models[i].A
+
             if self.u is not None:
-                varx_kwargs['x'] = self.u.T
-
-            result = linear_varx_EGLS(self.X.T, **varx_kwargs)
-
-            self.mu[i] = result['mu']
-            self.stderr_mu[i] = result['stderr_mu']
-
-            if self.memory > 0:
-                self.A[i] = result['A']
-                self.stderr_A[i] = result['stderr_A']
-
-            if n_external > 0:
-                self.B0[i] = result['B0']
-                self.stderr_B0[i] = result['stderr_B0']
-
-            self.Sigma_inv[i] = np.linalg.pinv(result['Sigma_LS'])
-
-        self._evaluate_residuals()
+                self.B0[i] = self.models[i].B0

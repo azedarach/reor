@@ -126,7 +126,7 @@ class FEMBV():
                 n_ub_constraints += n_aux_constraints
                 ub_values = np.concatenate(
                     [ub_values,
-                     np.zeros((2 * self.n_components * (n_samples -1),))])
+                     np.zeros((2 * self.n_components * (n_samples - 1),))])
 
                 # Number of total variation norm constraints
                 n_tv_constraints = self.n_components

@@ -1,19 +1,18 @@
 """
-Provides test routines for VAR routines.
+Provides test routines for FEM-BV-VARX routines.
 """
 
 import unittest
 import os
 import numpy as np
 
-from reor.var import linear_varx_leastsq
-
+from reor.fembv_varx import FEMBVVARXLocalLinearModel
 
 TEST_DATA_PATH = os.path.realpath(os.path.dirname(__file__))
 
 
-class TestLinearLeastSquaresVAR(unittest.TestCase):
-    """Provides unit tests for linear VAR models with least squares."""
+class TestFEMBVVARXLocalLinearModelFit(unittest.TestCase):
+    """Provides unit tests for linear VARX models fitted with least squares."""
 
     def test_linear_varx_leastsq_example_1(self):
         """Test gives correct least-squares estimate for example dataset."""
@@ -36,12 +35,18 @@ class TestLinearLeastSquaresVAR(unittest.TestCase):
         log_cons = np.log(cons)
 
         y = np.vstack(
-            [np.diff(log_invest), np.diff(log_income), np.diff(log_cons)])
+            [np.diff(log_invest), np.diff(log_income), np.diff(log_cons)]).T
 
-        self.assertTrue(y.shape == (3, 75))
+        self.assertTrue(y.shape == (75, 3))
 
-        mu, A, B, B0, Sigma_LS = linear_varx_leastsq(
-            y, p=p, include_intercept=True, bias=False)
+        model = FEMBVVARXLocalLinearModel(y, p=p)
+        model.fit()
+
+        mu = model.mu
+        A = model.A
+        B = model.B
+        B0 = model.B0
+        Sigma_LS = model.Sigma_u
 
         expected_mu = np.array([-0.017, 0.016, 0.013])
         expected_A = np.array([[[-0.320, 0.146, 0.961],
@@ -58,4 +63,4 @@ class TestLinearLeastSquaresVAR(unittest.TestCase):
         self.assertTrue(np.allclose(A, expected_A, atol=1e-3))
         self.assertTrue(B is None)
         self.assertTrue(B0 is None)
-        self.assertTrue(np.allclose(Sigma_LS, expected_Sigma_LS, atol=1e-4))
+        self.assertTrue(np.allclose(Sigma_LS, expected_Sigma_LS, atol=1e-5))
