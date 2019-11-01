@@ -319,7 +319,7 @@ class FEMBVVARX(FEMBV):
 
         # Initialize models by performing unweighted fits to
         # given data
-        for i in range(n_components):
+        for i in range(self.n_components):
             self.models[i].fit()
 
         self.distance_matrix = np.empty(
