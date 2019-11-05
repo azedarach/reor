@@ -17,14 +17,14 @@ def _ppca_log_likelihood_fn(data, mu, w, z, sigma_sq):
     log_likelihood = 0.0
 
     z_dist = tfp.distributions.Normal(
-        loc=tf.zeros([n_components, n_samples]),
-        scale=tf.ones([n_components, n_samples]))
+        loc=tf.zeros([n_components, n_samples], dtype=z.dtype),
+        scale=tf.ones([n_components, n_samples], dtype=z.dtype))
 
     log_likelihood += tf.reduce_sum(z_dist.log_prob(z))
 
     x_dist = tfp.distributions.Normal(
-        loc=(mu[:, tf.newaxis] + tf.matmul(w, z)),
-        scale=sigma_sq * tf.ones([n_features, n_samples]))
+        loc=tf.dtypes.cast(mu[:, tf.newaxis] + tf.matmul(w, z), data.dtype),
+        scale=sigma_sq * tf.ones([n_features, n_samples], dtype=data.dtype))
 
     log_likelihood += tf.reduce_sum(x_dist.log_prob(data))
 
@@ -42,8 +42,8 @@ def _ppca_log_joint_fn(data, mu, w, z, sigma_sq,
 
     if sigma_mu > 0:
         mu_dist = tfp.distributions.Normal(
-            loc=tf.zeros([n_features,]),
-            scale=sigma_mu * tf.ones([n_features,]))
+            loc=tf.zeros([n_features,], dtype=mu.dtype),
+            scale=sigma_mu * tf.ones([n_features,], dtype=mu.dtype))
 
         log_joint += tf.reduce_sum(mu_dist.log_prob(mu))
 
@@ -54,20 +54,20 @@ def _ppca_log_joint_fn(data, mu, w, z, sigma_sq,
         log_joint += sigma_sq_dist.log_prob(sigma_sq)
 
     w_dist = tfp.distributions.Normal(
-        loc=tf.zeros([n_features, n_components]),
-        scale=sigma_w * tf.ones([n_features, n_components]))
+        loc=tf.zeros([n_features, n_components], dtype=w.dtype),
+        scale=sigma_w * tf.ones([n_features, n_components], dtype=w.dtype))
 
     log_joint += tf.reduce_sum(w_dist.log_prob(w))
 
     z_dist = tfp.distributions.Normal(
-        loc=tf.zeros([n_components, n_samples]),
-        scale=tf.ones([n_components, n_samples]))
+        loc=tf.zeros([n_components, n_samples], dtype=z.dtype),
+        scale=tf.ones([n_components, n_samples]), dtype=z.dtype)
 
     log_joint += tf.reduce_sum(z_dist.log_prob(z))
 
     x_dist = tfp.distributions.Normal(
-        loc=(mu[:, tf.newaxis] + tf.matmul(w, z)),
-        scale=sigma_sq * tf.ones([n_features, n_samples]))
+        loc=tf.dtypes.cast(mu[:, tf.newaxis] + tf.matmul(w, z), data.dtype),
+        scale=sigma_sq * tf.ones([n_features, n_samples], dtype=data.dtype))
 
     log_joint += tf.reduce_sum(x_dist.log_prob(data))
 
