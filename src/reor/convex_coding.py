@@ -252,7 +252,7 @@ class ConvexCoding():
         self.sigma_sq = None
         self.loss = None
 
-    def fit_transofmr(self, data, **kwargs):
+    def fit_transform(self, data, **kwargs):
         """Perform convex coding of data.
 
         This is more efficient than calling fit followed by transform.
