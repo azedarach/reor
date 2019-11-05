@@ -223,12 +223,8 @@ def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
             for c in callbacks:
                 c.on_epoch_end(epoch, logs)
 
-        if tolerance is not None and tolerance > 0:
-            # Ensure at least one training epoch
-            if epoch == 0:
-                continue
-
-            loss_delta = abs(loss_value - old_loss)
+        if tolerance is not None and tolerance > 0 and epoch > 0:
+            loss_delta = tf.abs(loss_value - old_loss)
             if loss_delta < tolerance:
                 break
 
