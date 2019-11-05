@@ -13,7 +13,7 @@ setup(
         'numpy',
         'scikit-learn',
         'scipy',
-        'tensorflow>=2.0.0',
+        'tensorflow-gpu>=2.0.0',
         'tensorflow-probability'],
     packages=find_packages('src'),
     package_dir={'':'src'},
