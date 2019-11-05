@@ -91,7 +91,8 @@ def _ppca_negative_log_joint_grad_fn(data, mu, w, z, sigma_sq,
 def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
                       z_init=None, sigma_sq_init=None,
                       sigma_mu=-1, sigma_w=1.0, beta=0.1,
-                      optimizer=None, n_epochs=200, callbacks=None):
+                      optimizer=None, max_epochs=200, tolerance=-1,
+                      callbacks=None):
     """Evaluate MAP estimate for PPCA on dataset.
 
     Parameters
@@ -133,8 +134,13 @@ def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
     optimizer : None or instance of tf.optimizers.Optimizer
         Optimizer to be used to calculate MAP estimate.
 
-    n_epochs : integer, default: 200
-        Number of training epochs.
+    max_epochs : integer, default: 200
+        Maximum number of training epochs.
+
+    tolerance : None or scalar
+        If a positive scalar, the stopping condition tolerance. If None
+        or less than or equal to zero, iterates for the maximum number
+        of epochs.
 
     callbacks : None or list of callbacks
         If a list, should contain a list of callbacks to be called.
@@ -195,7 +201,8 @@ def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
         for c in callbacks:
             c.on_train_begin(logs=None)
 
-    for epoch in range(n_epochs):
+    old_loss = None
+    for epoch in range(max_epochs):
 
         if callbacks is not None:
             for c in callbacks:
@@ -215,6 +222,17 @@ def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
             logs = {'loss': loss_value}
             for c in callbacks:
                 c.on_epoch_end(epoch, logs)
+
+        if tolerance is not None and tolerance > 0:
+            # Ensure at least one training epoch
+            if epoch == 0:
+                continue
+
+            loss_delta = abs(loss_value - old_loss)
+            if loss_delta < tolerance:
+                break
+
+        old_loss = loss_value
 
     if callbacks is not None:
         for c in callbacks:
@@ -351,7 +369,7 @@ class PPCA():
 
     def fit(self, data, mu_init=None, w_init=None,
             z_init=None, sigma_sq_init=None,
-            optimizer=None, n_epochs=200, callbacks=None):
+            optimizer=None, max_epochs=200, tolerance=-1, callbacks=None):
         """Fit PPCA model to data.
 
         Parameters
@@ -371,7 +389,8 @@ class PPCA():
                 z_init=z_init, sigma_sq_init=sigma_sq_init,
                 sigma_mu=self.sigma_mu, sigma_w=self.sigma_w,
                 beta=self.beta, optimizer=optimizer,
-                n_epochs=n_epochs, callbacks=callbacks)
+                max_epochs=max_epochs, tolerance=tolerance,
+                callbacks=callbacks)
 
             self.log_likelihood = _ppca_log_likelihood_fn(
                 data, mu, w, z, sigma_sq)
