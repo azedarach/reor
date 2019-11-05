@@ -61,7 +61,7 @@ def _ppca_log_joint_fn(data, mu, w, z, sigma_sq,
 
     z_dist = tfp.distributions.Normal(
         loc=tf.zeros([n_components, n_samples], dtype=z.dtype),
-        scale=tf.ones([n_components, n_samples]), dtype=z.dtype)
+        scale=tf.ones([n_components, n_samples], dtype=z.dtype))
 
     log_joint += tf.reduce_sum(z_dist.log_prob(z))
 
