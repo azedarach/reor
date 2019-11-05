@@ -74,20 +74,6 @@ def _ppca_log_joint_fn(data, mu, w, z, sigma_sq,
     return log_joint
 
 
-def _ppca_negative_log_joint_grad_fn(data, mu, w, z, sigma_sq,
-                                     sigma_mu=-1, sigma_w=1.0, beta=-1,
-                                     update_parameters=True):
-    with tf.GradientTape() as tape:
-        loss_value = -_ppca_log_joint_fn(
-            data, mu, w, z, sigma_sq,
-            sigma_mu=sigma_mu, sigma_w=sigma_w, beta=beta)
-
-    if update_parameters:
-        return loss_value, tape.gradient(loss_value, [mu, w, z, sigma_sq])
-
-    return loss_value, tape.gradient(loss_value, [z])
-
-
 def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
                       z_init=None, sigma_sq_init=None,
                       sigma_mu=-1, sigma_w=1.0, beta=0.1,
@@ -97,7 +83,6 @@ def ppca_map_estimate(data, n_components, mu_init=None, w_init=None,
 
     Parameters
     ----------
-
     data : array-like, shape (n_features, n_samples)
         Data to perform PPCA on.
 
@@ -351,7 +336,7 @@ class PPCA():
 
         Parameters
         ----------
-        data : array-like, shape (n_samples, n_features)
+        data : array-like, shape (n_features, n_samples)
             Data matrix to be fitted.
 
         Returns
