@@ -24,7 +24,8 @@ def _ppca_log_likelihood_fn(data, mu, w, z, sigma_sq):
 
     x_dist = tfp.distributions.Normal(
         loc=tf.dtypes.cast(mu[:, tf.newaxis] + tf.matmul(w, z), data.dtype),
-        scale=sigma_sq * tf.ones([n_features, n_samples], dtype=data.dtype))
+        scale=tf.sqrt(sigma_sq) * tf.ones([n_features, n_samples],
+                                          dtype=data.dtype))
 
     log_likelihood += tf.reduce_sum(x_dist.log_prob(data))
 
@@ -67,7 +68,8 @@ def _ppca_log_joint_fn(data, mu, w, z, sigma_sq,
 
     x_dist = tfp.distributions.Normal(
         loc=tf.dtypes.cast(mu[:, tf.newaxis] + tf.matmul(w, z), data.dtype),
-        scale=sigma_sq * tf.ones([n_features, n_samples], dtype=data.dtype))
+        scale=tf.sqrt(sigma_sq) * tf.ones([n_features, n_samples],
+                                          dtype=data.dtype))
 
     log_joint += tf.reduce_sum(x_dist.log_prob(data))
 
