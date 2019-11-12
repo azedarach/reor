@@ -136,8 +136,17 @@ class FEMBVVARXLocalLinearModel():
         if self._u is not None:
             df -= self._u.shape[1] * (1 + self.s)
 
-        self.Sigma_u = np.dot(self.residuals[presample_length:].T,
-                             self.residuals[presample_length:]) / df
+        if weights is None:
+            self.Sigma_u = np.dot(self.residuals[presample_length:].T,
+                                  self.residuals[presample_length:]) / df
+        else:
+            weighted_residuals = (np.sqrt(weights[presample_length:, np.newaxis]) *
+                                  self.residuals[presample_length:])
+            self.Sigma_u = (np.dot(weighted_residuals[presample_length:].T,
+                                   weighted_residuals[presample_length:]) /
+                            np.sum(weights) - 1)
+
+        self.Sigma_u_inv = np.linalg.pinv(self.Sigma_u)
 
 
 class FEMBVVARX(FEMBV):
@@ -276,8 +285,10 @@ class FEMBVVARX(FEMBV):
 
     def _evaluate_distance_matrix(self):
         for i in range(self.n_components):
-            self.distance_matrix[: , i] = np.sum(
-                self.models[i].residuals[self.memory[i]:] ** 2, axis=1)
+            metric = self.models[i].Sigma_u_inv
+            self.distance_matrix[:, i] = np.einsum(
+                'ij,jk,ik->i', self.models[i].residuals, metric,
+                self.models[i].residuals)
 
     def _initialize_components(self, data, parameters=None, init=None, **kwargs):
         """Generate initial guess for component parameters."""
@@ -335,6 +346,7 @@ class FEMBVVARX(FEMBV):
 
         presample_length = np.max(self.memory)
         for i in range(self.n_components):
+
             weights = np.ones(
                 (n_samples - presample_length + self.memory[i],),
                 dtype=self.X.dtype)
