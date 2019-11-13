@@ -268,6 +268,7 @@ class FEMBV():
             if update_parameters:
                 self._update_parameters()
                 new_cost = self._evaluate_cost()
+
                 if n_iter > 0 and self.require_monotonic_cost_decrease:
                     update_failed = (new_cost > old_cost and
                                      abs(new_cost - old_cost) > self.tolerance)
@@ -278,6 +279,7 @@ class FEMBV():
             if update_weights:
                 self._update_weights()
                 new_cost = self._evaluate_cost()
+
                 if n_iter > 0 and self.require_monotonic_cost_decrease:
                     update_failed = (new_cost > old_cost and
                                      abs(new_cost - old_cost) > self.tolerance)

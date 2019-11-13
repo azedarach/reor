@@ -142,11 +142,12 @@ class FEMBVVARXLocalLinearModel():
         else:
             weighted_residuals = (np.sqrt(weights[presample_length:, np.newaxis]) *
                                   self.residuals[presample_length:])
-            self.Sigma_u = (np.dot(weighted_residuals[presample_length:].T,
-                                   weighted_residuals[presample_length:]) /
-                            np.sum(weights) - 1)
+            df = np.sum(weights[presample_length:]) - 1
+            self.Sigma_u = np.dot(weighted_residuals.T,
+                                  weighted_residuals) / df
 
-        self.Sigma_u_inv = np.linalg.pinv(self.Sigma_u)
+        self.Sigma_u_inv = np.linalg.inv(self.Sigma_u)
+
 
 
 class FEMBVVARX(FEMBV):
@@ -286,7 +287,7 @@ class FEMBVVARX(FEMBV):
     def _evaluate_distance_matrix(self):
         presample_length = np.max(self.memory)
         for i in range(self.n_components):
-            metric = self.models[i].Sigma_u_inv
+            metric = np.eye(self.models[i].Sigma_u_inv.shape[0])
             self.distance_matrix[:, i] = np.einsum(
                 'ij,jk,ik->i',
                 self.models[i].residuals[presample_length:],
