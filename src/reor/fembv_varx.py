@@ -284,11 +284,14 @@ class FEMBVVARX(FEMBV):
         self.B0 = None
 
     def _evaluate_distance_matrix(self):
+        presample_length = np.max(self.memory)
         for i in range(self.n_components):
             metric = self.models[i].Sigma_u_inv
             self.distance_matrix[:, i] = np.einsum(
-                'ij,jk,ik->i', self.models[i].residuals, metric,
-                self.models[i].residuals)
+                'ij,jk,ik->i',
+                self.models[i].residuals[presample_length:],
+                metric,
+                self.models[i].residuals[presample_length:])
 
     def _initialize_components(self, data, parameters=None, init=None, **kwargs):
         """Generate initial guess for component parameters."""

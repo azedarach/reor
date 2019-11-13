@@ -3,7 +3,6 @@ Provides test routines for generic FEM-BV routines.
 """
 
 import unittest
-import cvxopt
 import numpy as np
 
 from sklearn.utils import check_random_state
@@ -59,7 +58,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
         model._initialize_components(X)
         model._initialize_weights(X, n_samples)
 
-        A_eq = np.array(cvxopt.matrix(model.A_eq.real()))
+        A_eq = np.array(model.A_eq.todense())
         b_eq = np.array(model.b_eq)
 
         expected_A_eq = np.array(
@@ -91,7 +90,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
         model._initialize_components(X)
         model._initialize_weights(X, n_samples)
 
-        A_ub = np.array(cvxopt.matrix(model.A_ub.real()))
+        A_ub = np.array(model.A_ub.todense())
         b_ub = np.array(model.b_ub)
 
         expected_A_ub = -np.eye(n_components * n_samples)
@@ -119,7 +118,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
         model._initialize_components(X)
         model._initialize_weights(X, n_samples)
 
-        A_eq = np.array(cvxopt.matrix(model.A_eq.real()))
+        A_eq = np.array(model.A_eq.todense())
         b_eq = np.array(model.b_eq)
 
         n_parameters = n_components * (2 * n_samples - 1)
@@ -153,7 +152,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
         model._initialize_components(X)
         model._initialize_weights(X, n_samples)
 
-        A_ub = np.array(cvxopt.matrix(model.A_ub.real()))
+        A_ub = np.array(model.A_ub.todense())
         b_ub = np.array(model.b_ub)
 
         n_parameters = n_components * (2 * n_samples - 1)
@@ -161,7 +160,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
                          n_components)
 
         self.assertTrue(A_ub.shape == (n_constraints, n_parameters))
-        self.assertTrue(b_ub.shape == (n_constraints, 1))
+        self.assertTrue(b_ub.shape == (n_constraints,))
 
         expected_A_ub = np.zeros((n_constraints, n_parameters))
         expected_A_ub[:n_parameters, :n_parameters] = -np.eye(n_parameters)
@@ -188,7 +187,7 @@ class TestFEMBVWeightsConstraints(unittest.TestCase):
              [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
              [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0]])
 
-        expected_b_ub = np.zeros((n_constraints, 1), dtype='f8')
+        expected_b_ub = np.zeros((n_constraints,), dtype='f8')
         expected_b_ub[-n_components:] = max_tv_norm
 
         self.assertTrue(np.allclose(A_ub, expected_A_ub))

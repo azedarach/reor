@@ -9,9 +9,9 @@ import numbers
 import time
 import warnings
 import numpy as np
+from scipy.sparse import csr_matrix
 
-from cvxopt import matrix, spmatrix
-import cvxopt.solvers as cs
+import cvxpy as cp
 from sklearn.utils import check_array, check_random_state
 
 from reor._random_matrix import right_stochastic_matrix
@@ -54,18 +54,18 @@ class FEMBV():
         self.random_state = check_random_state(random_state)
         self.require_monotonic_cost_decrease = kwargs.get(
             'require_monotonic_cost_decrease', False)
+        self.weights_solver_kwargs = kwargs.get(
+            'weights_solver_kwargs', dict())
         self.name = 'Generic FEM-BV'
 
         self.Gamma = None
         self.Eta = None
         self.distance_matrix = None
 
-        self.c = None
         self.A_eq = None
         self.b_eq = None
         self.A_ub = None
         self.b_ub = None
-        self.bounds = None
 
     def _evaluate_distance_matrix(self):
         raise NotImplementedError()
@@ -77,29 +77,35 @@ class FEMBV():
     def _has_max_tv_norm_constraint(self):
         return self.max_tv_norm is not None and self.max_tv_norm >= 0
 
-    def _initialize_constraints(self, n_samples):
+    def _get_number_of_weight_parameters(self, n_samples):
 
         n_weight_parameters = self.n_components * n_samples
 
         if self._has_max_tv_norm_constraint():
             n_weight_parameters += self.n_components * (n_samples - 1)
 
-        self.c = matrix(0.0, size=(n_weight_parameters, 1), tc='d')
+        return n_weight_parameters
+
+    def _initialize_constraints(self, n_samples):
+
+        n_weight_parameters = self._get_number_of_weight_parameters(n_samples)
 
         if self.n_components > 1:
             eq_nnz_rows = np.repeat(np.arange(n_samples), self.n_components)
             eq_nnz_cols = np.arange(n_samples * self.n_components)
-            self.A_eq = spmatrix(1.0, eq_nnz_rows, eq_nnz_cols,
-                                 size=(n_samples, n_weight_parameters), tc='d')
-            self.b_eq = matrix(1.0, size=(n_samples, 1), tc='d')
+
+            self.A_eq = csr_matrix(
+                (np.ones((n_samples * self.n_components,), dtype=self.Gamma.dtype),
+                 (eq_nnz_rows, eq_nnz_cols)),
+                shape=(n_samples, n_weight_parameters))
+            self.b_eq = np.ones((n_samples,), dtype=self.Gamma.dtype)
 
             # Number of non-negativity constraints
             n_non_neg_constraints = n_weight_parameters
             n_ub_constraints = n_non_neg_constraints
 
             # Non-negativity constraints on weight parameters
-            nnz_coeffs = np.full((n_weight_parameters,), -1,
-                                 dtype=self.Gamma.dtype)
+            nnz_coeffs = np.full((n_weight_parameters,), -1.0)
             ub_nnz_rows = np.arange(n_weight_parameters)
             ub_nnz_cols = np.arange(n_weight_parameters)
             ub_values = np.zeros((n_weight_parameters,), dtype=self.Gamma.dtype)
@@ -126,7 +132,8 @@ class FEMBV():
                 n_ub_constraints += n_aux_constraints
                 ub_values = np.concatenate(
                     [ub_values,
-                     np.zeros((2 * self.n_components * (n_samples - 1),))])
+                     np.zeros((2 * self.n_components * (n_samples - 1),),
+                              dtype=self.Gamma.dtype)])
 
                 # Number of total variation norm constraints
                 n_tv_constraints = self.n_components
@@ -156,10 +163,10 @@ class FEMBV():
                 ub_nnz_cols = np.concatenate(
                     [ub_nnz_cols, nnz_aux_cols, nnz_tv_cols])
 
-            self.A_ub = spmatrix(
-                nnz_coeffs, ub_nnz_rows, ub_nnz_cols,
-                size=(n_ub_constraints, n_weight_parameters), tc='d')
-            self.b_ub = matrix(ub_values, size=(n_ub_constraints, 1), tc='d')
+            self.A_ub = csr_matrix(
+                (nnz_coeffs, (ub_nnz_rows, ub_nnz_cols)),
+                shape=(n_ub_constraints, n_weight_parameters))
+            self.b_ub = np.reshape(ub_values, (n_ub_constraints,))
 
     def _initialize_weights(self, unused_data, n_samples, weights=None, init=None):
         """Generate initial guess for component weights."""
@@ -209,34 +216,31 @@ class FEMBV():
 
         assert self.distance_matrix.shape == (n_samples, self.n_components)
 
-        # cvxopt requires double type matrix
-        self.c[:self.Gamma.size] = self.distance_matrix.ravel().astype('float64')
+        n_weight_parameters = self._get_number_of_weight_parameters(n_samples)
 
-        if 'show_progress' in cs.options:
-            old_show_progress = cs.options['show_progress']
-        else:
-            old_show_progress = True
+        gamma_vec = cp.Variable(n_weight_parameters)
 
-        if self.verbose > 1:
-            cs.options['show_progress'] = True
-        else:
-            cs.options['show_progress'] = False
+        c = np.zeros((n_weight_parameters,))
+        c[:self.Gamma.size] = self.distance_matrix.ravel()
 
-        sol = cs.lp(self.c, G=self.A_ub, h=self.b_ub,
-                    A=self.A_eq, b=self.b_eq)
+        constraints = [self.A_eq @ gamma_vec == self.b_eq,
+                       self.A_ub @ gamma_vec <= self.b_ub]
 
-        cs.options['show_progress'] = old_show_progress
+        problem = cp.Problem(cp.Minimize(c.T @ gamma_vec), constraints)
 
-        if sol['status'] != 'optimal':
+        problem.solve(**self.weights_solver_kwargs)
+
+        if problem.status in ['infeasible', 'unbounded']:
             warnings.warn('Updating weights failed', UserWarning)
         else:
-            self.Gamma = np.reshape(
-                sol['x'][:self.n_components * n_samples],
-                (n_samples, self.n_components))
+            sol = problem.variables()[0].value
+            self.Gamma = np.clip(np.reshape(
+                sol[:self.n_components * n_samples],
+                (n_samples, self.n_components)), 0.0, 1.0)
 
             if self._has_max_tv_norm_constraint():
                 self.Eta = np.reshape(
-                    sol['x'][self.n_components * n_samples:],
+                    sol[self.n_components * n_samples:],
                     (n_samples - 1, self.n_components))
 
     def _update_parameters(self):
