@@ -46,7 +46,7 @@ class FEMBVVARXLocalLinearModel():
 
             n_exog = self._u.shape[1]
 
-            self.B0 = np.zeros((n_features, n_external), dtype=self._y.dtype)
+            self.B0 = np.zeros((n_features, n_exog), dtype=self._y.dtype)
 
             if not isinstance(s, INTEGER_TYPES) or s < 0:
                 raise ValueError(
@@ -55,7 +55,7 @@ class FEMBVVARXLocalLinearModel():
             self.s = s
 
             if self.s > 0:
-                self.B = np.zeros((self.s, n_features, n_external),
+                self.B = np.zeros((self.s, n_features, n_exog),
                                   dtype=self._y.dtype)
             else:
                 self.B = None
