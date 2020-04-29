@@ -130,7 +130,7 @@ class FEMBVVARXLocalLinearModel():
                 self.B = B.swapaxes(1, 2).copy()
 
             row_start = 1 + n_features * self.p + self.s * n_exog
-            self.B0 = params[row_start:].swapaxes(1, 2).copy()
+            self.B0 = params[row_start:].swapaxes(0, 1).copy()
 
         df = n_samples - presample_length - self.p * n_features - 1
         if self._u is not None:
