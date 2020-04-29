@@ -300,6 +300,7 @@ class FEMBVVARX(FEMBV):
         self.X = data.copy()
         if 'external_factors' in kwargs:
             self.u = kwargs['external_factors'].copy()
+            self.u = check_array(self.u)
         else:
             self.u = None
 
